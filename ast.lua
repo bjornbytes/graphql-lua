@@ -11,13 +11,15 @@ local alias = space * name * P(':')
 local value = space * C(R('09') ^ 1) -- todo values are hard
 local argument = space * Ct(Cg(name, 'name') * P(':') * Cg(value, 'value')) * comma
 local arguments = P('(') * Ct(argument ^ 1) * P(')')
+local fragmentName = space * (name - 'on')
+local fragmentSpread = space * P('...') * fragmentName
 
 -- Nonterminals
 local graphQL = P {
   'input',
   input = space * V('selectionSet') * -1,
   selectionSet = space * P('{') * space * Ct(V('selection') ^ 0) * space * P('}'),
-  selection = space * V('field'),
+  selection = space * (V('field') + fragmentSpread),
   field = Ct(space * Cg(alias ^ -1, 'alias') * Cg(name, 'name') * Cg(arguments ^ -1, 'arguments') * Cg(V('selectionSet'), 'children') ^ 0) * comma,
 }
 

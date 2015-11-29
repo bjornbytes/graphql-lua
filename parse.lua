@@ -95,8 +95,12 @@ local function cField(...)
 
   for i = 1, #tokens do
     local key = tokens[i].kind
-    if not key and tokens[i][1].kind == 'argument' then
-      key = 'arguments'
+    if not key then
+      if tokens[i][1].kind == 'argument' then
+        key = 'arguments'
+      elseif tokens[i][1].kind == 'directive' then
+        key = 'directives'
+      end
     end
 
     field[key] = tokens[i]
@@ -133,10 +137,17 @@ local function cOperation(...)
       operation = args[1]
     }
 
-    if #args >= 3 then
-      result.name, result.selectionSet = unpack(args, 2, 3)
-    else
-      result.selectionSet = args[2]
+    for i = 2, #args do
+      local key = args[i].kind
+      if not key then
+        if args[i][1].kind == 'variableDefinition' then
+          key = 'variableDefinitions'
+        elseif args[i][1].kind == 'directive' then
+          key = 'directives'
+        end
+      end
+
+      result[key] = args[i]
     end
 
     return result
@@ -166,6 +177,20 @@ local function cNamedType(name)
   }
 end
 
+local function cListType(type)
+  return {
+    kind = 'listType',
+    type = type
+  }
+end
+
+local function cNonNullType(type)
+  return {
+    kind = 'nonNullType',
+    type = type
+  }
+end
+
 local function cInlineFragment(...)
   local args = pack(...)
   if #args == 2 then
@@ -182,6 +207,30 @@ local function cInlineFragment(...)
   end
 end
 
+local function cVariable(name)
+  return {
+    kind = 'variable',
+    name = name
+  }
+end
+
+local function cVariableDefinition(variable, type, defaultValue)
+  return {
+    kind = 'variableDefinition',
+    variable = variable,
+    type = type,
+    defaultValue = defaultValue
+  }
+end
+
+local function cDirective(name, arguments)
+  return {
+    kind = 'directive',
+    name = name,
+    arguments = arguments
+  }
+end
+
 -- "Terminals"
 local rawName = R('az', 'AZ') * (P('_') + R('09') + R('az', 'AZ')) ^ 0
 local name = rawName / cName
@@ -190,32 +239,41 @@ local integerPart = P('-') ^ -1 * (P('0') + R('19') * R('09') ^ 0)
 local intValue = integerPart / cInt
 local fractionalPart = P('.') * R('09') ^ 1
 local exponentialPart = S('Ee') * S('+-') ^ -1 * R('09') ^ 1
-local floatValue = integerPart * (fractionalPart ^ -1 * exponentialPart ^ -1) / cFloat
+local floatValue = integerPart * (fractionalPart + exponentialPart + (fractionalPart * exponentialPart)) / cFloat
 local booleanValue = (P('true') + P('false')) / cBoolean
 local stringValue = P('"') * C((P('\\"') + 1 - S('"\n')) ^ 0) * P('"') / cString
 local enumValue = (rawName - 'true' - 'false' - 'null') / cEnum
-local typeCondition = P('on') * space * name / cNamedType
 local fragmentName = (rawName - 'on') / cName
 local fragmentSpread = space * P('...') * fragmentName / cFragmentSpread
 local operationType = C(P('query') + P('mutation'))
+local variable = space * P('$') * name / cVariable
 
 -- Nonterminals
 local graphQL = P {
   'document',
   document = space * Ct((V('definition') * comma * space) ^ 0) / cDocument * -1,
   definition = V('operation') + V('fragmentDefinition'),
-  operation = (operationType * space * name ^ -1 * V('selectionSet') + V('selectionSet')) / cOperation,
-  fragmentDefinition = P('fragment') * space * fragmentName * space * typeCondition * space * V('selectionSet') / cFragmentDefinition,
-  inlineFragment = P('...') * space * typeCondition ^ -1 * V('selectionSet') / cInlineFragment,
+  operation = (operationType * space * name ^ -1 * V('variableDefinitions') ^ -1 * V('directives') ^ -1 * V('selectionSet') + V('selectionSet')) / cOperation,
+  fragmentDefinition = P('fragment') * space * fragmentName * space * V('typeCondition') * space * V('selectionSet') / cFragmentDefinition,
+  inlineFragment = P('...') * space * V('typeCondition') ^ -1 * V('selectionSet') / cInlineFragment,
   selectionSet = space * P('{') * space * Ct(V('selection') ^ 0) * space * P('}') / cSelectionSet,
   selection = space * (V('field') + fragmentSpread + V('inlineFragment')),
-  field = space * alias ^ -1 * name * V('arguments') ^ -1 * V('selectionSet') ^ -1 * comma / cField,
+  field = space * alias ^ -1 * name * V('arguments') ^ -1 * V('directives') ^ -1 * V('selectionSet') ^ -1 * comma / cField,
   argument = space * name * P(':') * V('value') * comma / cArgument,
   arguments = P('(') * Ct(V('argument') ^ 1) * P(')'),
-  value = space * (V('objectValue') + V('listValue') + enumValue + stringValue + booleanValue + floatValue + intValue),
+  value = space * (variable + V('objectValue') + V('listValue') + enumValue + stringValue + booleanValue + floatValue + intValue),
   listValue = P('[') * Ct((V('value') * comma) ^ 0) * P(']') / cList,
   objectFieldValue = C(rawName) * space * P(':') * space * V('value') * comma / cObjectField,
-  objectValue = P('{') * space * Ct(V('objectFieldValue') ^ 0) * space * P('}') / cObject
+  objectValue = P('{') * space * Ct(V('objectFieldValue') ^ 0) * space * P('}') / cObject,
+  type = V('nonNullType') + V('listType') + V('namedType'),
+  namedType = name / cNamedType,
+  listType = P('[') * space * V('type') * space * P(']') / cListType,
+  nonNullType = (V('namedType') + V('listType')) * P('!') / cNonNullType,
+  typeCondition = P('on') * space * V('namedType'),
+  variableDefinition = space * variable * space * P(':') * space * V('type') * (space * P('=') * V('value')) ^ -1 * comma * space / cVariableDefinition,
+  variableDefinitions = P('(') * Ct(V('variableDefinition') ^ 1) * P(')'),
+  directive = P('@') * name * V('arguments') ^ -1 / cDirective,
+  directives = space * Ct((V('directive') * comma * space) ^ 1) * space
 }
 
 return function(str)

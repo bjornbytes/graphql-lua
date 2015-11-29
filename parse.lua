@@ -113,8 +113,6 @@ local function cSelectionSet(selections)
 end
 
 local function cFragmentSpread(name)
-  if name == 'on' then error('Fragment name cannot be "on"') end
-
   return {
     kind = 'fragmentSpread',
     name = name
@@ -152,6 +150,22 @@ local function cDocument(definitions)
   }
 end
 
+local function cFragmentDefinition(name, typeCondition, selectionSet)
+  return {
+    kind = 'fragmentDefinition',
+    name = name,
+    typeCondition = typeCondition,
+    selectionSet = selectionSet
+  }
+end
+
+local function cType(name)
+  return {
+    kind = 'type',
+    name = name
+  }
+end
+
 -- "Terminals"
 local rawName = space * R('az', 'AZ') * (P('_') + R('09') + R('az', 'AZ')) ^ 0
 local name = rawName / cName
@@ -164,15 +178,18 @@ local floatValue = integerPart * (fractionalPart ^ -1 * exponentialPart ^ -1) / 
 local booleanValue = (P('true') + P('false')) / cBoolean
 local stringValue = P('"') * C((P('\\"') + 1 - S('"\n')) ^ 0) * P('"') / cString
 local enumValue = (rawName - 'true' - 'false' - 'null') / cEnum
-local fragmentSpread = space * P('...') * name / cFragmentSpread
+local typeCondition = P('on') * space * name / cType
+local fragmentName = (rawName - 'on') / cName
+local fragmentSpread = space * P('...') * fragmentName / cFragmentSpread
 local operationType = C(P('query') + P('mutation'))
 
 -- Nonterminals
 local graphQL = P {
   'document',
   document = space * Ct((V('definition') * comma * space) ^ 0) / cDocument * -1,
-  definition = V('operation'),
+  definition = V('operation') + V('fragmentDefinition'),
   operation = (operationType * space * name ^ -1 * V('selectionSet') + V('selectionSet')) / cOperation,
+  fragmentDefinition = P('fragment') * space * fragmentName * space * typeCondition * space * V('selectionSet') / cFragmentDefinition,
   selectionSet = space * P('{') * space * Ct(V('selection') ^ 0) * space * P('}') / cSelectionSet,
   selection = space * (V('field') + fragmentSpread),
   field = space * alias ^ -1 * name * V('arguments') ^ -1 * V('selectionSet') ^ -1 * comma / cField,

@@ -159,15 +159,31 @@ local function cFragmentDefinition(name, typeCondition, selectionSet)
   }
 end
 
-local function cType(name)
+local function cNamedType(name)
   return {
-    kind = 'type',
+    kind = 'namedType',
     name = name
   }
 end
 
+local function cInlineFragment(...)
+  local args = pack(...)
+  if #args == 2 then
+    return {
+      kind = 'inlineFragment',
+      typeCondition = args[1],
+      selectionSet = args[2]
+    }
+  elseif #args == 1 then
+    return {
+      kind = 'inlineFragment',
+      selectionSet = args[1]
+    }
+  end
+end
+
 -- "Terminals"
-local rawName = space * R('az', 'AZ') * (P('_') + R('09') + R('az', 'AZ')) ^ 0
+local rawName = R('az', 'AZ') * (P('_') + R('09') + R('az', 'AZ')) ^ 0
 local name = rawName / cName
 local alias = space * name * P(':') / cAlias
 local integerPart = P('-') ^ -1 * (P('0') + R('19') * R('09') ^ 0)
@@ -178,7 +194,7 @@ local floatValue = integerPart * (fractionalPart ^ -1 * exponentialPart ^ -1) / 
 local booleanValue = (P('true') + P('false')) / cBoolean
 local stringValue = P('"') * C((P('\\"') + 1 - S('"\n')) ^ 0) * P('"') / cString
 local enumValue = (rawName - 'true' - 'false' - 'null') / cEnum
-local typeCondition = P('on') * space * name / cType
+local typeCondition = P('on') * space * name / cNamedType
 local fragmentName = (rawName - 'on') / cName
 local fragmentSpread = space * P('...') * fragmentName / cFragmentSpread
 local operationType = C(P('query') + P('mutation'))
@@ -190,8 +206,9 @@ local graphQL = P {
   definition = V('operation') + V('fragmentDefinition'),
   operation = (operationType * space * name ^ -1 * V('selectionSet') + V('selectionSet')) / cOperation,
   fragmentDefinition = P('fragment') * space * fragmentName * space * typeCondition * space * V('selectionSet') / cFragmentDefinition,
+  inlineFragment = P('...') * space * typeCondition ^ -1 * V('selectionSet') / cInlineFragment,
   selectionSet = space * P('{') * space * Ct(V('selection') ^ 0) * space * P('}') / cSelectionSet,
-  selection = space * (V('field') + fragmentSpread),
+  selection = space * (V('field') + fragmentSpread + V('inlineFragment')),
   field = space * alias ^ -1 * name * V('arguments') ^ -1 * V('selectionSet') ^ -1 * comma / cField,
   argument = space * name * P(':') * V('value') * comma / cArgument,
   arguments = P('(') * Ct(V('argument') ^ 1) * P(')'),

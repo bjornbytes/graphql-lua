@@ -75,7 +75,7 @@ Right now it can parse pretty much all of the query syntax:
 - Arguments
 - FragmentSpreads and InlineFragments
 - All value types (scalars, enums, lists, objects, variables).
-- Variable Definitions (typed)
+- VariableDefinitions (typed)
 - Directives
 
 Missing features:

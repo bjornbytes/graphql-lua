@@ -61,7 +61,6 @@ local function cList(value)
 end
 
 local function cObjectField(name, value)
-  print(name, value)
   return {
     name = name,
     value = value
@@ -122,6 +121,37 @@ local function cFragmentSpread(name)
   }
 end
 
+local function cOperation(...)
+  local args = pack(...)
+  if args[1].kind == 'selectionSet' then
+    return {
+      kind = 'operation',
+      operation = 'query',
+      selectionSet = args[1]
+    }
+  else
+    local result = {
+      kind = 'operation',
+      operation = args[1]
+    }
+
+    if #args >= 3 then
+      result.name, result.selectionSet = unpack(args, 2, 3)
+    else
+      result.selectionSet = args[2]
+    end
+
+    return result
+  end
+end
+
+local function cDocument(definitions)
+  return {
+    kind = 'document',
+    definitions = definitions
+  }
+end
+
 -- "Terminals"
 local rawName = space * R('az', 'AZ') * (P('_') + R('09') + R('az', 'AZ')) ^ 0
 local name = rawName / cName
@@ -135,11 +165,14 @@ local booleanValue = (P('true') + P('false')) / cBoolean
 local stringValue = P('"') * C((P('\\"') + 1 - S('"\n')) ^ 0) * P('"') / cString
 local enumValue = (rawName - 'true' - 'false' - 'null') / cEnum
 local fragmentSpread = space * P('...') * name / cFragmentSpread
+local operationType = C(P('query') + P('mutation'))
 
 -- Nonterminals
 local graphQL = P {
-  'input',
-  input = space * V('selectionSet') * -1,
+  'document',
+  document = space * Ct((V('definition') * comma * space) ^ 0) / cDocument * -1,
+  definition = V('operation'),
+  operation = (operationType * space * name ^ -1 * V('selectionSet') + V('selectionSet')) / cOperation,
   selectionSet = space * P('{') * space * Ct(V('selection') ^ 0) * space * P('}') / cSelectionSet,
   selection = space * (V('field') + fragmentSpread),
   field = space * alias ^ -1 * name * V('arguments') ^ -1 * V('selectionSet') ^ -1 * comma / cField,

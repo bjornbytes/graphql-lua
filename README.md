@@ -7,14 +7,12 @@ Example
 ---
 
 ```lua
-require 'parse' [[
-{
+require 'parse' [[{
   me {
-		firstName
+    firstName
     lastName
   }
-}
-]]
+}]]
 ```
 
 Gives you a table that looks like this:

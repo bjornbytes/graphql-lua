@@ -15,7 +15,7 @@ require 'parse' [[{
 }]]
 ```
 
-Gives you a table that looks like this:
+Gives you this scary table:
 
 ```lua
 {

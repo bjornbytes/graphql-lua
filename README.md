@@ -63,7 +63,7 @@ Gives you this scary table:
 Status
 ---
 
-Right now it can parse pretty much all of the query syntax:
+The parser can parse virtually all of the query syntax:
 
 - Documents
 - Definitions
@@ -78,14 +78,8 @@ Right now it can parse pretty much all of the query syntax:
 - VariableDefinitions (typed)
 - Directives
 
-Missing features:
-
-- Validation, error handling
-- Comments
-- Type definitions, interfaces, etc.
-- Introspection
-- Execution
-- Unicode stuff
+The type system supports scalars, objects, enums, interfaces, and unions.  The built in scalars are
+also provided (ints, floats, strings, etc.).
 
 License
 ---

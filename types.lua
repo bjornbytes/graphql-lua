@@ -9,6 +9,15 @@ function types.nonNull(kind)
   }
 end
 
+function types.list(kind)
+  assert(kind, 'Must provide a type')
+
+  return {
+    __type = 'List',
+    ofType = kind
+  }
+end
+
 function types.scalar(config)
   assert(type(config.name) == 'string', 'type name must be provided as a string')
   assert(type(config.serialize) == 'function', 'serialize must be a function')

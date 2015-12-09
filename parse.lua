@@ -234,7 +234,7 @@ end
 -- "Terminals"
 local rawName = R('az', 'AZ') * (P('_') + R('09') + R('az', 'AZ')) ^ 0
 local name = rawName / cName
-local alias = space * name * P(':') / cAlias
+local alias = space * name * P(':') * space / cAlias
 local integerPart = P('-') ^ -1 * (P('0') + R('19') * R('09') ^ 0)
 local intValue = integerPart / cInt
 local fractionalPart = P('.') * R('09') ^ 1
@@ -277,5 +277,6 @@ local graphQL = P {
 }
 
 return function(str)
+  assert(type(str) == 'string', 'parser expects a string')
   return graphQL:match(str)
 end

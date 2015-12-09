@@ -133,6 +133,28 @@ function types.union(config)
   return instance
 end
 
+function types.inputObject(config)
+  assert(type(config.name) == 'string', 'type name must be provided as a string')
+
+  local fields = {}
+  for fieldName, field in pairs(config.fields) do
+    field = field.__type and { kind = field } or field
+    fields[fieldName] = {
+      name = fieldName,
+      kind = field.kind
+    }
+  end
+
+  local instance = {
+    __type = 'InputObject',
+    name = config.name,
+    description = config.description,
+    fields = fields
+  }
+
+  return instance
+end
+
 local coerceInt = function(value)
   value = tonumber(value)
 

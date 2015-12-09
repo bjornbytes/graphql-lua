@@ -46,7 +46,7 @@ function types.object(config)
     fields[fieldName] = {
       name = fieldName,
       kind = field.kind,
-      args = field.args or {}
+      arguments = field.arguments or {}
     }
   end
 
@@ -54,7 +54,8 @@ function types.object(config)
     __type = 'Object',
     name = config.name,
     isTypeOf = config.isTypeOf,
-    fields = fields
+    fields = fields,
+    interfaces = config.interfaces
   }
 
   instance.nonNull = types.nonNull(instance)
@@ -69,11 +70,21 @@ function types.interface(config)
     assert(type(config.resolveType) == 'function', 'must provide resolveType as a function')
   end
 
+  local fields = {}
+  for fieldName, field in pairs(config.fields) do
+    field = field.__type and { kind = field } or field
+    fields[fieldName] = {
+      name = fieldName,
+      kind = field.kind,
+      arguments = field.arguments or {}
+    }
+  end
+
   local instance = {
     __type = 'Interface',
     name = config.name,
     description = config.description,
-    fields = config.fields,
+    fields = fields,
     resolveType = config.resolveType
   }
 

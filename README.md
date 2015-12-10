@@ -78,8 +78,8 @@ The parser can parse virtually all of the query syntax:
 - VariableDefinitions (typed)
 - Directives
 
-The type system supports scalars, objects, enums, interfaces, and unions.  The built in scalars are
-also provided (ints, floats, strings, etc.).
+The type system supports scalars, objects, enums, input objects, interfaces, and unions.  The built in scalars are
+also provided (ints, floats, strings, etc.), as well as the two wrapper types (non null and list).
 
 License
 ---

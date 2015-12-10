@@ -22,7 +22,6 @@ function schema.create(config)
 
     if node.__type == 'Object' and node.interfaces then
       for _, interface in ipairs(node.interfaces) do
-        print(require('inspect')(interface))
         generateTypeMap(interface)
       end
     end

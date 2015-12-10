@@ -1,99 +1,129 @@
-return function(schema, tree)
+local rules = require 'rules'
 
-  local context = {
-    operationNames = {},
-    hasAnonymousOperation = false,
-    typeStack = {}
-  }
-
-  local visitors = {
-    document = function(node)
+local visitors = {
+  document = {
+    children = function(node, context)
       return node.definitions
+    end
+  },
+
+  operation = {
+    enter = function(node, context)
+      table.insert(context.objects, context.schema.query)
     end,
 
-    operation = function(node)
-      local name = node.name and node.name.value
-
-      if name then
-        if context.operationNames[name] then
-          error('Multiple operations exist named "' .. name .. '"')
-        else
-          context.operationNames[name] = true
-        end
-      else
-        if context.hasAnonymousOperation or next(context.operationNames) then
-          error('Cannot have more than one operation when using anonymous operations')
-        end
-
-        context.hasAnonymousOperation = true
-      end
-
-      return {node.selectionSet}
+    exit = function(node, context)
+      table.remove(context.objects)
     end,
 
-    selectionSet = function(node)
+    children = function(node)
+      return { node.selectionSet }
+    end,
+
+    rules = {
+      rules.uniqueOperationNames,
+      rules.loneAnonymousOperation
+    }
+  },
+
+  selectionSet = {
+    children = function(node)
       return node.selections
     end,
 
-    field = function(node)
-      local currentType = context.typeStack[#context.typeStack].__type
-      if currentType == 'Scalar' and node.selectionSet then
-        error('Scalar values cannot have subselections')
-      end
+    rules = { rules.unambiguousSelections }
+  },
 
-      local isCompositeType = currentType == 'Object' or currentType == 'Interface' or currentType == 'Union'
-      if isCompositeType and not node.selectionSet then
-        error('Composite types must have subselections')
-      end
+  field = {
+    enter = function(node, context)
+      local parentField = context.objects[#context.objects].fields[node.name.value]
 
+      -- false is a special value indicating that the field was not present in the type definition.
+      context.currentField = parentField and parentField.kind or false
+
+      table.insert(context.objects, context.currentField)
+    end,
+
+    exit = function(node, context)
+      table.remove(context.objects)
+      context.currentField = nil
+    end,
+
+    children = function(node)
       if node.selectionSet then
         return {node.selectionSet}
       end
     end,
 
-    inlineFragment = function(node)
+    rules = {
+      rules.fieldsDefinedOnType,
+      rules.argumentsDefinedOnType,
+      rules.scalarFieldsAreLeaves,
+      rules.compositeFieldsAreNotLeaves
+    }
+  },
+
+  inlineFragment = {
+    enter = function(node, context)
+      local kind = false
+
+      if node.typeCondition then
+        kind = context.schema:getType(node.typeCondition.name.value) or false
+      end
+
+      table.insert(context.objects, kind)
+    end,
+
+    exit = function(node, context)
+      table.remove(context.objects)
+    end,
+
+    children = function(node, context)
       if node.selectionSet then
         return {node.selectionSet}
       end
-    end
+    end,
+
+    rules = { rules.inlineFragmentValidTypeCondition }
+  }
+}
+
+return function(schema, tree)
+  local context = {
+    operationNames = {},
+    hasAnonymousOperation = false,
+    objects = {},
+    schema = schema
   }
 
-  local root = schema.query
   local function visit(node)
-    if node.kind and visitors[node.kind] then
-      if node.kind == 'operation' then
-        table.insert(context.typeStack, schema.query)
-      elseif node.kind == 'field' then
-        local parent = context.typeStack[#context.typeStack]
-        if parent.fields[node.name.value] then
-          table.insert(context.typeStack, parent.fields[node.name.value].kind)
-        else
-          error('Field "' .. node.name.value .. '" is not defined on type "' .. parent.name .. '"')
-        end
-      elseif node.kind == 'inlineFragment' then
-        if node.typeCondition then
-          local kind = schema:getType(node.typeCondition.name.value)
+    local visitor = node.kind and visitors[node.kind]
 
-          if not kind then
-            error('Inline fragment type condition refers to non-existent type')
-          end
+    if not visitor then return end
 
-          if kind and kind.__type ~= 'Object' and kind.__type ~= 'Interface' and kind.__type ~= 'Union' then
-            error('Inline fragment type condition was not an Object, Interface, or Union')
-          end
+    if visitor.enter then
+      visitor.enter(node, context)
+    end
 
-          table.insert(context.typeStack, kind)
+    if visitor.rules then
+      for i = 1, #visitor.rules do
+        visitor.rules[i](node, context)
+      end
+    end
+
+    if visitor.children then
+      local children = visitor.children(node)
+      if children then
+        for _, child in ipairs(children) do
+          visit(child)
         end
       end
+    end
 
-      local targets = visitors[node.kind](node)
-      if targets then
-        for _, target in ipairs(targets) do
-          visit(target)
-        end
-      end
+    if visitor.exit then
+      visitor.exit(node, context)
     end
   end
 
-  visit(tree)
+  return visit(tree)
 end

@@ -117,7 +117,8 @@ local paths = {
       return has(v, x), 'table "' .. tostring(v) .. '" does not have ' .. tostring(x)
     end
   },
-  fail = {f = function(v) return not pcall(v), tostring(v) .. ' did not fail' end}
+  fail = {'with', f = function(v) return not pcall(v), tostring(v) .. ' did not fail' end},
+  with = {f = function(v, x) local _, e = pcall(v) return e and e:find(x), tostring(v) .. ' did not fail with ' .. tostring(x) end}
 }
 
 function lust.expect(v)

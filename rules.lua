@@ -165,4 +165,17 @@ function rules.unambiguousSelections(node, context)
   validateSelectionSet(node, context.objects[#context.objects])
 end
 
+function rules.uniqueArgumentNames(node, context)
+  if node.arguments then
+    local arguments = {}
+    for _, argument in ipairs(node.arguments) do
+      local name = argument.name.value
+      if arguments[name] then
+        error('Encountered multiple arguments named "' .. name .. '"')
+      end
+      arguments[name] = true
+    end
+  end
+end
+
 return rules

@@ -33,9 +33,10 @@ end
 
 function rules.argumentsDefinedOnType(node, context)
   if node.arguments then
+    local parentField = context.objects[#context.objects - 1].fields[node.name.value]
     for _, argument in pairs(node.arguments) do
       local name = argument.name.value
-      if not context.currentField.arguments[name] then
+      if not parentField.arguments[name] then
         error('Non-existent argument "' .. name .. '"')
       end
     end
@@ -74,35 +75,94 @@ end
 function rules.unambiguousSelections(node, context)
   local selectionMap = {}
 
-  -- FIXME
-  local function canMerge(fieldA, fieldB)
-    return fieldA.__type == fieldB.__type and fieldA.name == fieldB.name
-  end
+  local function findConflict(entryA, entryB)
 
-  local function validateSelection(key, kind)
-    if selectionMap[key] and not canMerge(selectionMap[key], kind) then
-      error('Type mismatch')
+    -- Parent types can't overlap if they're different objects.
+    -- Interface and union types may overlap.
+    if entryA.parent ~= entryB.parent and entryA.__type == 'Object' and entryB.__type == 'Object' then
+      return
     end
 
-    selectionMap[key] = kind
-  end
+    -- Error if there are aliases that map two different fields to the same name.
+    if entryA.field.name.value ~= entryB.field.name.value then
+      return 'Type name mismatch'
+    end
 
-  -- Recursively make sure that there are no ambiguous selections with the same name.
-  local function validateSelectionSet(selectionSet)
-    for _, selection in ipairs(selectionSet.selections) do
-      if selection.kind == 'field' then
-        local selectionKey = selection.alias and selection.alias.name.value or selection.name.value
-        local currentType = context.objects[#context.objects].fields[selection.name.value].kind
-        validateSelection(selectionKey, currentType)
-      elseif selection.kind == 'inlineFragment' then
-        validateSelectionSet(selection.selectionSet)
-      elseif selection.kind == 'fragmentSpread' then
-        validateSelectionSet(selection.selectionSet)
+    -- Error if there are fields with the same name that have different return types.
+    if entryA.definition and entryB.definition and entryA.definition ~= entryB.definition then
+      return 'Return type mismatch'
+    end
+
+    -- Error if arguments are not identical for two fields with the same name.
+    local argsA = entryA.field.arguments or {}
+    local argsB = entryB.field.arguments or {}
+
+    if #argsA ~= #argsB then
+      return 'Argument mismatch'
+    end
+
+    local argMap = {}
+
+    for i = 1, #argsA do
+      argMap[argsA[i].name.value] = argsA[i].value
+    end
+
+    for i = 1, #argsB do
+      local name = argsB[i].name.value
+      if not argMap[name] then
+        return 'Argument mismatch'
+      elseif argMap[name].kind ~= argsB[i].value.kind then
+        return 'Argument mismatch'
+      elseif argMap[name].value ~= argsB[i].value.value then
+        return 'Argument mismatch'
       end
     end
   end
 
-  validateSelectionSet(node)
+  local function validateField(key, entry)
+    if selectionMap[key] then
+      for i = 1, #selectionMap[key] do
+        local conflict = findConflict(selectionMap[key][i], entry)
+        if conflict then
+          error(conflict)
+        end
+      end
+
+      table.insert(selectionMap[key], entry)
+    else
+      selectionMap[key] = { entry }
+    end
+  end
+
+  -- Recursively make sure that there are no ambiguous selections with the same name.
+  local function validateSelectionSet(selectionSet, parentType)
+    for _, selection in ipairs(selectionSet.selections) do
+      if selection.kind == 'field' then
+        local key = selection.alias and selection.alias.name.value or selection.name.value
+        local definition = parentType.fields[selection.name.value].kind
+        local fieldEntry = {
+          parent = parentType,
+          field = selection,
+          definition = definition
+        }
+
+        validateField(key, fieldEntry)
+      elseif selection.kind == 'inlineFragment' then
+        local parentType = parentType
+
+        if selection.typeCondition then
+          parentType = context.schema:getType(selection.typeCondition.name.value) or parentType
+        end
+
+        validateSelectionSet(selection.selectionSet, parentType)
+      elseif selection.kind == 'fragmentSpread' then
+        -- FIXME find fragment by name, get type condition to compute parentType
+        validateSelectionSet(selection.selectionSet, parentType)
+      end
+    end
+  end
+
+  validateSelectionSet(node, context.objects[#context.objects])
 end
 
 return rules

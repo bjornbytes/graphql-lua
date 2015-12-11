@@ -178,4 +178,61 @@ function rules.uniqueArgumentNames(node, context)
   end
 end
 
+function rules.argumentsOfCorrectType(node, context)
+  local function validateType(argumentType, valueNode)
+    if argumentType.__type == 'NonNull' then
+      return validateType(argumentType.ofType, valueNode)
+    end
+
+    if argumentType.__type == 'List' then
+      if valueNode.kind ~= 'list' then
+        error('Expected a list')
+      end
+
+      for i = 1, #valueNode.values do
+        validateType(argumentType.ofType, valueNode.values[i])
+      end
+    end
+
+    if argumentType.__type == 'InputObject' then
+      if valueNode.kind ~= 'object' then
+        error('Expected an object')
+      end
+
+      for _, field in ipairs(valueNode.values) do
+        if not argumentType.fields[field.name] then
+          error('Unknown input object field "' .. field.name .. '"')
+        end
+
+        validateType(argumentType.fields[field.name].kind, field.value)
+      end
+    end
+
+    if argumentType.__type == 'Enum' then
+      if valueNode.kind ~= 'enum' then
+        error('Expected enum value, got ' .. valueNode.kind)
+      end
+
+      if not argumentType.values[valueNode.value] then
+        error('Invalid enum value "' .. valueNode.value .. '"')
+      end
+    end
+
+    if argumentType.__type == 'Scalar' then
+      if argumentType.parseLiteral(valueNode) == nil then
+        error('Could not coerce "' .. valueNode.value .. '" to "' .. argumentType.name .. '"')
+      end
+    end
+  end
+
+  if node.arguments then
+    local parentField = context.objects[#context.objects - 1].fields[node.name.value]
+    for _, argument in pairs(node.arguments) do
+      local name = argument.name.value
+      local argumentType = parentField.arguments[name]
+      validateType(argumentType, argument.value)
+    end
+  end
+end
+
 return rules

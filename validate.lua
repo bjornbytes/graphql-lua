@@ -60,7 +60,8 @@ local visitors = {
       rules.argumentsDefinedOnType,
       rules.scalarFieldsAreLeaves,
       rules.compositeFieldsAreNotLeaves,
-      rules.uniqueArgumentNames
+      rules.uniqueArgumentNames,
+      rules.argumentsOfCorrectType
     }
   },
 

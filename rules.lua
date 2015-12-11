@@ -235,4 +235,24 @@ function rules.argumentsOfCorrectType(node, context)
   end
 end
 
+function rules.requiredArgumentsPresent(node, context)
+  local arguments = node.arguments or {}
+  local parentField = context.objects[#context.objects - 1].fields[node.name.value]
+  for name, argument in pairs(parentField.arguments) do
+    if argument.__type == 'NonNull' then
+      local present = false
+      for i = 1, #arguments do
+        if arguments[i].name.value == name then
+          present = true
+          break
+        end
+      end
+
+      if not present then
+        error('Required argument "' .. name .. '" was not supplied.')
+      end
+    end
+  end
+end
+
 return rules

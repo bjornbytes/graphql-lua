@@ -103,7 +103,9 @@ local visitors = {
   fragmentSpread = {
     enter = function(node, context)
       context.usedFragments[node.name.value] = true
-    end
+    end,
+
+    rules = { rules.fragmentSpreadTargetDefined }
   },
 
   fragmentDefinition = {
@@ -120,7 +122,7 @@ local visitors = {
       return { node.selectionSet }
     end,
 
-    rules = { rules.fragmentHasValidType }
+    rules = { rules.fragmentHasValidType, rules.fragmentDefinitionHasNoCycles }
   }
 }
 

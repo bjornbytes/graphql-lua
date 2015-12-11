@@ -60,6 +60,7 @@ end
 
 function rules.unambiguousSelections(node, context)
   local selectionMap = {}
+  local seen = {}
 
   local function findConflict(entryA, entryB)
 
@@ -132,14 +133,22 @@ function rules.unambiguousSelections(node, context)
           definition = definition
         }
 
+        if seen[definition] then
+          return
+        end
+
+        seen[definition] = true
+
         validateField(key, fieldEntry)
       elseif selection.kind == 'inlineFragment' then
         local parentType = selection.typeCondition and context.schema:getType(selection.typeCondition.name.value) or parentType
         validateSelectionSet(selection.selectionSet, parentType)
       elseif selection.kind == 'fragmentSpread' then
         local fragmentDefinition = context.fragmentMap[selection.name.value]
-        local parentType = context.schema:getType(fragmentDefinition.typeCondition.name.value)
-        validateSelectionSet(fragmentDefinition.selectionSet, parentType)
+        if fragmentDefinition and fragmentDefinition.typeCondition then
+          local parentType = context.schema:getType(fragmentDefinition.typeCondition.name.value)
+          validateSelectionSet(fragmentDefinition.selectionSet, parentType)
+        end
       end
     end
   end
@@ -274,6 +283,37 @@ function rules.noUnusedFragments(node, context)
       end
     end
   end
+end
+
+function rules.fragmentSpreadTargetDefined(node, context)
+  if not context.fragmentMap[node.name.value] then
+    error('Fragment spread refers to non-existent fragment "' .. node.name.value .. '"')
+  end
+end
+
+function rules.fragmentDefinitionHasNoCycles(node, context)
+  local seen = { [node.name.value] = true }
+
+  local function detectCycles(selectionSet)
+    for _, selection in ipairs(selectionSet.selections) do
+      if selection.kind == 'inlineFragment' then
+        detectCycles(selection.selectionSet)
+      elseif selection.kind == 'fragmentSpread' then
+        if seen[selection.name.value] then
+          error('Fragment definition has cycles')
+        end
+
+        seen[selection.name.value] = true
+
+        local fragmentDefinition = context.fragmentMap[selection.name.value]
+        if fragmentDefinition and fragmentDefinition.typeCondition then
+          detectCycles(fragmentDefinition.selectionSet)
+        end
+      end
+    end
+  end
+
+  detectCycles(node.selectionSet)
 end
 
 return rules

@@ -9,6 +9,8 @@ function schema.create(config)
     self[k] = v
   end
 
+  self.typeMap = {}
+
   local function generateTypeMap(node)
     if node.__type == 'NonNull' or node.__type == 'List' then
       return generateTypeMap(node.ofType)
@@ -38,8 +40,6 @@ function schema.create(config)
       end
     end
   end
-
-  self.typeMap = {}
 
   generateTypeMap(self.query)
 

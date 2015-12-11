@@ -58,20 +58,6 @@ function rules.compositeFieldsAreNotLeaves(node, context)
   end
 end
 
-function rules.inlineFragmentValidTypeCondition(node, context)
-  if not node.typeCondition then return end
-
-  local kind = context.objects[#context.objects]
-
-  if kind == false then
-    error('Inline fragment type condition refers to non-existent type')
-  end
-
-  if kind.__type ~= 'Object' and kind.__type ~= 'Interface' and kind.__type ~= 'Union' then
-    error('Inline fragment type condition was not an Object, Interface, or Union')
-  end
-end
-
 function rules.unambiguousSelections(node, context)
   local selectionMap = {}
 
@@ -148,16 +134,12 @@ function rules.unambiguousSelections(node, context)
 
         validateField(key, fieldEntry)
       elseif selection.kind == 'inlineFragment' then
-        local parentType = parentType
-
-        if selection.typeCondition then
-          parentType = context.schema:getType(selection.typeCondition.name.value) or parentType
-        end
-
+        local parentType = selection.typeCondition and context.schema:getType(selection.typeCondition.name.value) or parentType
         validateSelectionSet(selection.selectionSet, parentType)
       elseif selection.kind == 'fragmentSpread' then
-        -- FIXME find fragment by name, get type condition to compute parentType
-        validateSelectionSet(selection.selectionSet, parentType)
+        local fragmentDefinition = context.fragmentMap[selection.name.value]
+        local parentType = context.schema:getType(fragmentDefinition.typeCondition.name.value)
+        validateSelectionSet(fragmentDefinition.selectionSet, parentType)
       end
     end
   end
@@ -250,6 +232,45 @@ function rules.requiredArgumentsPresent(node, context)
 
       if not present then
         error('Required argument "' .. name .. '" was not supplied.')
+      end
+    end
+  end
+end
+
+function rules.uniqueFragmentNames(node, context)
+  local fragments = {}
+  for _, definition in ipairs(node.definitions) do
+    if definition.kind == 'fragmentDefinition' then
+      local name = definition.name.value
+      if fragments[name] then
+        error('Encountered multiple fragments named "' .. name .. '"')
+      end
+      fragments[name] = true
+    end
+  end
+end
+
+function rules.fragmentHasValidType(node, context)
+  if not node.typeCondition then return end
+
+  local name = node.typeCondition.name.value
+  local kind = context.schema:getType(name)
+
+  if not kind then
+    error('Fragment refers to non-existent type "' .. name .. '"')
+  end
+
+  if kind.__type ~= 'Object' and kind.__type ~= 'Interface' and kind.__type ~= 'Union' then
+    error('Fragment type must be an Object, Interface, or Union, got ' .. kind.__type)
+  end
+end
+
+function rules.noUnusedFragments(node, context)
+  for _, definition in ipairs(node.definitions) do
+    if definition.kind == 'fragmentDefinition' then
+      local name = definition.name.value
+      if not context.usedFragments[name] then
+        error('Fragment "' .. name .. '" was not used.')
       end
     end
   end

@@ -2,9 +2,19 @@ local rules = require 'rules'
 
 local visitors = {
   document = {
+    enter = function(node, context)
+      for _, definition in ipairs(node.definitions) do
+        if definition.kind == 'fragmentDefinition' then
+          context.fragmentMap[definition.name.value] = definition
+        end
+      end
+    end,
+
     children = function(node, context)
       return node.definitions
-    end
+    end,
+
+    rules = { rules.uniqueFragmentNames, exit = { rules.noUnusedFragments } }
   },
 
   operation = {
@@ -87,16 +97,41 @@ local visitors = {
       end
     end,
 
-    rules = { rules.inlineFragmentValidTypeCondition }
+    rules = { rules.fragmentHasValidType }
+  },
+
+  fragmentSpread = {
+    enter = function(node, context)
+      context.usedFragments[node.name.value] = true
+    end
+  },
+
+  fragmentDefinition = {
+    enter = function(node, context)
+      kind = context.schema:getType(node.typeCondition.name.value) or false
+      table.insert(context.objects, kind)
+    end,
+
+    exit = function(node, context)
+      table.remove(context.objects)
+    end,
+
+    children = function(node)
+      return { node.selectionSet }
+    end,
+
+    rules = { rules.fragmentHasValidType }
   }
 }
 
 return function(schema, tree)
   local context = {
+    schema = schema,
+    fragmentMap = {},
     operationNames = {},
     hasAnonymousOperation = false,
-    objects = {},
-    schema = schema
+    usedFragments = {},
+    objects = {}
   }
 
   local function visit(node)
@@ -120,6 +155,12 @@ return function(schema, tree)
         for _, child in ipairs(children) do
           visit(child)
         end
+      end
+    end
+
+    if visitor.rules and visitor.rules.exit then
+      for i = 1, #visitor.rules.exit do
+        visitor.rules.exit[i](node, context)
       end
     end
 

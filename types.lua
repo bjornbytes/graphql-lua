@@ -220,4 +220,40 @@ types.id = types.scalar({
   end
 })
 
+function types.directive(config)
+  assert(type(config.name) == 'string', 'type name must be provided as a string')
+
+  local instance = {
+    __type = 'Directive',
+    name = config.name,
+    description = config.description,
+    arguments = config.arguments,
+    onOperation = config.onOperation or false,
+    onFragment = config.onOperation or false,
+    onField = config.onField or false
+  }
+
+  return instance
+end
+
+types.include = types.directive({
+  name = 'include',
+  arguments = {
+    ['if'] = types.boolean.nonNull
+  },
+  onOperation = false,
+  onFragment = true,
+  onField = true
+})
+
+types.skip = types.directive({
+  name = 'skip',
+  arguments = {
+    ['if'] = types.boolean.nonNull
+  },
+  onOperation = false,
+  onFragment = true,
+  onField = true
+})
+
 return types

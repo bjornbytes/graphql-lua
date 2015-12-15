@@ -384,4 +384,14 @@ function rules.uniqueInputObjectFields(node, context)
   validateValue(node.value)
 end
 
+function rules.directivesAreDefined(node, context)
+  if not node.directives then return end
+
+  for _, directive in pairs(node.directives) do
+    if not context.schema:getDirective(directive.name.value) then
+      error('Unknown directive "' .. directive.name.value .. '"')
+    end
+  end
+end
+
 return rules

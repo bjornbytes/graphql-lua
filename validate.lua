@@ -32,7 +32,8 @@ local visitors = {
 
     rules = {
       rules.uniqueOperationNames,
-      rules.loneAnonymousOperation
+      rules.loneAnonymousOperation,
+      rules.directivesAreDefined
     }
   },
 
@@ -81,7 +82,8 @@ local visitors = {
       rules.compositeFieldsAreNotLeaves,
       rules.uniqueArgumentNames,
       rules.argumentsOfCorrectType,
-      rules.requiredArgumentsPresent
+      rules.requiredArgumentsPresent,
+      rules.directivesAreDefined
     }
   },
 
@@ -106,7 +108,11 @@ local visitors = {
       end
     end,
 
-    rules = { rules.fragmentHasValidType, rules.fragmentSpreadIsPossible }
+    rules = {
+      rules.fragmentHasValidType,
+      rules.fragmentSpreadIsPossible,
+      rules.directivesAreDefined
+    }
   },
 
   fragmentSpread = {
@@ -119,7 +125,11 @@ local visitors = {
       table.insert(context.objects, fragmentType)
     end,
 
-    rules = { rules.fragmentSpreadTargetDefined, rules.fragmentSpreadIsPossible }
+    rules = {
+      rules.fragmentSpreadTargetDefined,
+      rules.fragmentSpreadIsPossible,
+      rules.directivesAreDefined
+    }
   },
 
   fragmentDefinition = {
@@ -136,7 +146,11 @@ local visitors = {
       return { node.selectionSet }
     end,
 
-    rules = { rules.fragmentHasValidType, rules.fragmentDefinitionHasNoCycles }
+    rules = {
+      rules.fragmentHasValidType,
+      rules.fragmentDefinitionHasNoCycles,
+      rules.directivesAreDefined
+    }
   },
 
   argument = {

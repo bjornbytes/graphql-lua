@@ -11,6 +11,7 @@ function schema.create(config)
 
   self.typeMap = {}
   self.interfaceMap = {}
+  self.directiveMap = {}
 
   local function generateTypeMap(node)
     if node.__type == 'NonNull' or node.__type == 'List' then
@@ -46,10 +47,15 @@ function schema.create(config)
 
   generateTypeMap(self.query)
 
+  for _, directive in ipairs(self.directives) do
+    self.directiveMap[directive.name] = directive
+  end
+
   return setmetatable(self, schema)
 end
 
 function schema:getType(name)
+  if not name then return end
   return self.typeMap[name]
 end
 
@@ -57,6 +63,11 @@ function schema:getImplementors(interface)
   local kind = self:getType(interface)
   local isInterface = kind and kind.__type == 'Interface'
   return self.interfaceMap[interface] or (isInterface and {} or nil)
+end
+
+function schema:getDirective(name)
+  if not name then return false end
+  return self.directiveMap[name]
 end
 
 return schema

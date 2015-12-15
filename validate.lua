@@ -97,15 +97,20 @@ local visitors = {
       end
     end,
 
-    rules = { rules.fragmentHasValidType }
+    rules = { rules.fragmentHasValidType, rules.fragmentSpreadIsPossible }
   },
 
   fragmentSpread = {
     enter = function(node, context)
       context.usedFragments[node.name.value] = true
+
+      local fragment = context.fragmentMap[node.name.value]
+      local fragmentType = context.schema:getType(fragment.typeCondition.name.value) or false
+
+      table.insert(context.objects, fragmentType)
     end,
 
-    rules = { rules.fragmentSpreadTargetDefined }
+    rules = { rules.fragmentSpreadTargetDefined, rules.fragmentSpreadIsPossible }
   },
 
   fragmentDefinition = {

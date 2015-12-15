@@ -125,8 +125,11 @@ function rules.unambiguousSelections(node, context)
   local function validateSelectionSet(selectionSet, parentType)
     for _, selection in ipairs(selectionSet.selections) do
       if selection.kind == 'field' then
+        if not parentType or not parentType.fields[selection.name.value] then return end
+
         local key = selection.alias and selection.alias.name.value or selection.name.value
         local definition = parentType.fields[selection.name.value].kind
+
         local fieldEntry = {
           parent = parentType,
           field = selection,
@@ -314,6 +317,50 @@ function rules.fragmentDefinitionHasNoCycles(node, context)
   end
 
   detectCycles(node.selectionSet)
+end
+
+function rules.fragmentSpreadIsPossible(node, context)
+  local fragment = node.kind == 'inlineFragment' and node or context.fragmentMap[node.name.value]
+  local parentType = context.objects[#context.objects - 1]
+
+  local fragmentType
+  if node.kind == 'inlineFragment' then
+    fragmentType = node.typeCondition and context.schema:getType(node.typeCondition.name.value) or parentType
+  else
+    fragmentType = context.schema:getType(fragment.typeCondition.name.value)
+  end
+
+  -- Some types are not present in the schema.  Let other rules handle this.
+  if not parentType or not fragmentType then return end
+
+  local function getTypes(kind)
+    if kind.__type == 'Object' then
+      return { [kind] = kind }
+    elseif kind.__type == 'Interface' then
+      return context.schema:getImplementors(kind.name)
+    elseif kind.__type == 'Union' then
+      local types = {}
+      for i = 1, #kind.types do
+        types[kind.types[i]] = kind.types[i]
+      end
+      return types
+    end
+  end
+
+  local parentTypes = getTypes(parentType)
+  local fragmentTypes = getTypes(fragmentType)
+  local valid = false
+
+  for _, kind in pairs(parentTypes) do
+    if fragmentTypes[kind] then
+      valid = true
+      break
+    end
+  end
+
+  if not valid then
+    error('Fragment type condition is not possible for given type')
+  end
 end
 
 return rules

@@ -49,20 +49,29 @@ local visitors = {
       local parentField = context.objects[#context.objects].fields[node.name.value]
 
       -- false is a special value indicating that the field was not present in the type definition.
-      context.currentField = parentField and parentField.kind or false
+      local field = parentField and parentField.kind or false
 
-      table.insert(context.objects, context.currentField)
+      table.insert(context.objects, field)
     end,
 
     exit = function(node, context)
       table.remove(context.objects)
-      context.currentField = nil
     end,
 
     children = function(node)
-      if node.selectionSet then
-        return {node.selectionSet}
+      local children = {}
+
+      if node.arguments then
+        for i = 1, #node.arguments do
+          table.insert(children, node.arguments[i])
+        end
       end
+
+      if node.selectionSet then
+        table.insert(children, node.selectionSet)
+      end
+
+      return children
     end,
 
     rules = {
@@ -128,6 +137,10 @@ local visitors = {
     end,
 
     rules = { rules.fragmentHasValidType, rules.fragmentDefinitionHasNoCycles }
+  },
+
+  argument = {
+    rules = { rules.uniqueInputObjectFields }
   }
 }
 

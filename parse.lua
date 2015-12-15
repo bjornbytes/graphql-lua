@@ -69,7 +69,7 @@ end
 
 local function cObject(fields)
   return {
-    kind = 'object',
+    kind = 'inputObject',
     values = fields
   }
 end

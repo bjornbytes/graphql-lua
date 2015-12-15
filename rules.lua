@@ -25,7 +25,7 @@ function rules.loneAnonymousOperation(node, context)
 end
 
 function rules.fieldsDefinedOnType(node, context)
-  if context.currentField == false then
+  if context.objects[#context.objects] == false then
     local parent = context.objects[#context.objects - 1]
     error('Field "' .. node.name.value .. '" is not defined on type "' .. parent.name .. '"')
   end
@@ -44,13 +44,13 @@ function rules.argumentsDefinedOnType(node, context)
 end
 
 function rules.scalarFieldsAreLeaves(node, context)
-  if context.currentField.__type == 'Scalar' and node.selectionSet then
+  if context.objects[#context.objects].__type == 'Scalar' and node.selectionSet then
     error('Scalar values cannot have subselections')
   end
 end
 
 function rules.compositeFieldsAreNotLeaves(node, context)
-  local _type = context.currentField.__type
+  local _type = context.objects[#context.objects].__type
   local isCompositeType = _type == 'Object' or _type == 'Interface' or _type == 'Union'
 
   if isCompositeType and not node.selectionSet then
@@ -189,8 +189,8 @@ function rules.argumentsOfCorrectType(node, context)
     end
 
     if argumentType.__type == 'InputObject' then
-      if valueNode.kind ~= 'object' then
-        error('Expected an object')
+      if valueNode.kind ~= 'inputObject' then
+        error('Expected an input object')
       end
 
       for _, field in ipairs(valueNode.values) do
@@ -361,6 +361,27 @@ function rules.fragmentSpreadIsPossible(node, context)
   if not valid then
     error('Fragment type condition is not possible for given type')
   end
+end
+
+function rules.uniqueInputObjectFields(node, context)
+  local function validateValue(value)
+    if value.kind == 'listType' or value.kind == 'nonNullType' then
+      return validateValue(value.type)
+    elseif value.kind == 'inputObject' then
+      local fieldMap = {}
+      for _, field in ipairs(value.values) do
+        if fieldMap[field.name] then
+          error('Multiple input object fields named "' .. field.name .. '"')
+        end
+
+        fieldMap[field.name] = true
+
+        validateValue(field.value)
+      end
+    end
+  end
+
+  validateValue(node.value)
 end
 
 return rules

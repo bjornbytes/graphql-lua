@@ -33,7 +33,9 @@ local visitors = {
     rules = {
       rules.uniqueOperationNames,
       rules.loneAnonymousOperation,
-      rules.directivesAreDefined
+      rules.directivesAreDefined,
+      rules.variablesHaveCorrectType,
+      rules.variableDefaultValuesHaveCorrectType
     }
   },
 

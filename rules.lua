@@ -1,5 +1,51 @@
 local rules = {}
 
+local function checkValueMatchesType(valueNode, schemaType)
+  if schemaType.__type == 'NonNull' then
+    return checkValueMatchesType(schemaType.ofType, valueNode)
+  end
+
+  if schemaType.__type == 'List' then
+    if valueNode.kind ~= 'list' then
+      error('Expected a list')
+    end
+
+    for i = 1, #valueNode.values do
+      checkValueMatchesType(schemaType.ofType, valueNode.values[i])
+    end
+  end
+
+  if schemaType.__type == 'InputObject' then
+    if valueNode.kind ~= 'inputObject' then
+      error('Expected an input object')
+    end
+
+    for _, field in ipairs(valueNode.values) do
+      if not schemaType.fields[field.name] then
+        error('Unknown input object field "' .. field.name .. '"')
+      end
+
+      checkValueMatchesType(schemaType.fields[field.name].kind, field.value)
+    end
+  end
+
+  if schemaType.__type == 'Enum' then
+    if valueNode.kind ~= 'enum' then
+      error('Expected enum value, got ' .. valueNode.kind)
+    end
+
+    if not schemaType.values[valueNode.value] then
+      error('Invalid enum value "' .. valueNode.value .. '"')
+    end
+  end
+
+  if schemaType.__type == 'Scalar' then
+    if schemaType.parseLiteral(valueNode) == nil then
+      error('Could not coerce "' .. valueNode.value .. '" to "' .. schemaType.name .. '"')
+    end
+  end
+end
+
 function rules.uniqueOperationNames(node, context)
   local name = node.name and node.name.value
 
@@ -173,58 +219,12 @@ function rules.uniqueArgumentNames(node, context)
 end
 
 function rules.argumentsOfCorrectType(node, context)
-  local function validateType(argumentType, valueNode)
-    if argumentType.__type == 'NonNull' then
-      return validateType(argumentType.ofType, valueNode)
-    end
-
-    if argumentType.__type == 'List' then
-      if valueNode.kind ~= 'list' then
-        error('Expected a list')
-      end
-
-      for i = 1, #valueNode.values do
-        validateType(argumentType.ofType, valueNode.values[i])
-      end
-    end
-
-    if argumentType.__type == 'InputObject' then
-      if valueNode.kind ~= 'inputObject' then
-        error('Expected an input object')
-      end
-
-      for _, field in ipairs(valueNode.values) do
-        if not argumentType.fields[field.name] then
-          error('Unknown input object field "' .. field.name .. '"')
-        end
-
-        validateType(argumentType.fields[field.name].kind, field.value)
-      end
-    end
-
-    if argumentType.__type == 'Enum' then
-      if valueNode.kind ~= 'enum' then
-        error('Expected enum value, got ' .. valueNode.kind)
-      end
-
-      if not argumentType.values[valueNode.value] then
-        error('Invalid enum value "' .. valueNode.value .. '"')
-      end
-    end
-
-    if argumentType.__type == 'Scalar' then
-      if argumentType.parseLiteral(valueNode) == nil then
-        error('Could not coerce "' .. valueNode.value .. '" to "' .. argumentType.name .. '"')
-      end
-    end
-  end
-
   if node.arguments then
     local parentField = context.objects[#context.objects - 1].fields[node.name.value]
     for _, argument in pairs(node.arguments) do
       local name = argument.name.value
       local argumentType = parentField.arguments[name]
-      validateType(argumentType, argument.value)
+      checkValueMatchesType(argument.value, argumentType)
     end
   end
 end
@@ -390,6 +390,39 @@ function rules.directivesAreDefined(node, context)
   for _, directive in pairs(node.directives) do
     if not context.schema:getDirective(directive.name.value) then
       error('Unknown directive "' .. directive.name.value .. '"')
+    end
+  end
+end
+
+function rules.variablesHaveCorrectType(node, context)
+  local function validateType(type)
+    if type.kind == 'listType' or type.kind == 'nonNullType' then
+      validateType(type.type)
+    elseif type.kind == 'namedType' then
+      local schemaType = context.schema:getType(type.name.value)
+      if not schemaType then
+        error('Variable specifies unknown type "' .. tostring(type.name.value) .. '"')
+      elseif schemaType.__type ~= 'Scalar' and schemaType.__type ~= 'Enum' and schemaType.__type ~= 'InputObject' then
+        error('Variable types must be scalars, enums, or input objects, got "' .. schemaType.__type .. '"')
+      end
+    end
+  end
+
+  if node.variableDefinitions then
+    for _, definition in ipairs(node.variableDefinitions) do
+      validateType(definition.type)
+    end
+  end
+end
+
+function rules.variableDefaultValuesHaveCorrectType(node, context)
+  if node.variableDefinitions then
+    for _, definition in ipairs(node.variableDefinitions) do
+      if definition.type.kind == 'nonNullType' and definition.defaultValue then
+        error('Non-null variables can not have default values')
+      elseif definition.defaultValue then
+        checkValueMatchesType(definition.defaultValue, context.schema:getType(definition.type.name.value))
+      end
     end
   end
 end

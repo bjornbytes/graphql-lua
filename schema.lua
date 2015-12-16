@@ -1,3 +1,5 @@
+local types = require 'types'
+
 local schema = {}
 schema.__index = schema
 
@@ -9,7 +11,14 @@ function schema.create(config)
     self[k] = v
   end
 
-  self.typeMap = {}
+  self.typeMap = {
+    Int = types.int,
+    Float = types.float,
+    String = types.string,
+    Boolean = types.boolean,
+    ID = types.id
+  }
+
   self.interfaceMap = {}
   self.directiveMap = {}
 

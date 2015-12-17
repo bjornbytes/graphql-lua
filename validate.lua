@@ -20,11 +20,13 @@ local visitors = {
   operation = {
     enter = function(node, context)
       table.insert(context.objects, context.schema.query)
+      context.currentOperation = node
       context.variableReferences = {}
     end,
 
     exit = function(node, context)
       table.remove(context.objects)
+      context.currentOperation = nil
       context.variableReferences = nil
     end,
 
@@ -39,7 +41,8 @@ local visitors = {
       rules.variablesHaveCorrectType,
       rules.variableDefaultValuesHaveCorrectType,
       exit = {
-        rules.variablesAreUsed
+        rules.variablesAreUsed,
+        rules.variablesAreDefined
       }
     }
   },
@@ -72,6 +75,12 @@ local visitors = {
       if node.arguments then
         for i = 1, #node.arguments do
           table.insert(children, node.arguments[i])
+        end
+      end
+
+      if node.directives then
+        for i = 1, #node.directives do
+          table.insert(children, node.directives[i])
         end
       end
 
@@ -131,7 +140,7 @@ local visitors = {
 
       table.insert(context.objects, fragmentType)
 
-      if context.variableReferences then
+      if context.currentOperation then
         local function collectTransitiveVariables(node)
           if not node then return end
 
@@ -179,7 +188,13 @@ local visitors = {
     end,
 
     children = function(node)
-      return { node.selectionSet }
+      local children = {}
+
+      for _, selection in ipairs(node.selectionSet) do
+        table.insert(children, selection)
+      end
+
+      return children
     end,
 
     rules = {
@@ -191,19 +206,25 @@ local visitors = {
 
   argument = {
     enter = function(node, context)
-      if context.variableReferences then
+      if context.currentOperation then
         local value = node.value
         while value.kind == 'listType' or value.kind == 'nonNullType' do
           value = value.type
         end
 
         if value.kind == 'variable' then
-          context.variablesUsed[value.name.value] = true
+          context.variableReferences[value.name.value] = true
         end
       end
     end,
 
     rules = { rules.uniqueInputObjectFields }
+  },
+
+  directive = {
+    children = function(node, context)
+      return node.arguments
+    end
   }
 }
 
@@ -215,6 +236,7 @@ return function(schema, tree)
     hasAnonymousOperation = false,
     usedFragments = {},
     objects = {},
+    currentOperation = nil,
     variableReferences = nil
   }
 

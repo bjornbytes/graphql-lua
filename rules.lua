@@ -438,4 +438,19 @@ function rules.variablesAreUsed(node, context)
   end
 end
 
+function rules.variablesAreDefined(node, context)
+  if context.variableReferences then
+    local variableMap = {}
+    for _, definition in ipairs(node.variableDefinitions or {}) do
+      variableMap[definition.variable.name.value] = true
+    end
+
+    for variable in pairs(context.variableReferences) do
+      if not variableMap[variable] then
+        error('Unknown variable "' .. variable .. '"')
+      end
+    end
+  end
+end
+
 return rules

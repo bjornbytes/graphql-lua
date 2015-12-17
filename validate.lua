@@ -20,10 +20,12 @@ local visitors = {
   operation = {
     enter = function(node, context)
       table.insert(context.objects, context.schema.query)
+      context.variableReferences = {}
     end,
 
     exit = function(node, context)
       table.remove(context.objects)
+      context.variableReferences = nil
     end,
 
     children = function(node)
@@ -35,7 +37,10 @@ local visitors = {
       rules.loneAnonymousOperation,
       rules.directivesAreDefined,
       rules.variablesHaveCorrectType,
-      rules.variableDefaultValuesHaveCorrectType
+      rules.variableDefaultValuesHaveCorrectType,
+      exit = {
+        rules.variablesAreUsed
+      }
     }
   },
 
@@ -125,6 +130,35 @@ local visitors = {
       local fragmentType = context.schema:getType(fragment.typeCondition.name.value) or false
 
       table.insert(context.objects, fragmentType)
+
+      if context.variableReferences then
+        local function collectTransitiveVariables(node)
+          if not node then return end
+
+          if node.kind == 'selectionSet' then
+            for _, selection in ipairs(node.selections) do
+              collectTransitiveVariables(selection)
+            end
+          elseif node.kind == 'field' and node.arguments then
+            for _, argument in ipairs(node.arguments) do
+              collectTransitiveVariables(argument)
+            end
+          elseif node.kind == 'argument' then
+            return collectTransitiveVariables(node.value)
+          elseif node.kind == 'listType' or node.kind == 'nonNullType' then
+            return collectTransitiveVariables(node.type)
+          elseif node.kind == 'variable' then
+            context.variableReferences[node.name.value] = node.name.value
+          elseif node.kind == 'inlineFragment' then
+            return collectTransitiveVariables(node.selectionSet)
+          elseif node.kind == 'fragmentSpread' then
+            local fragment = context.fragmentMap[node.name.value]
+            return fragment and collectTransitiveVariables(fragment.selectionSet)
+          end
+        end
+
+        collectTransitiveVariables(fragment.selectionSet)
+      end
     end,
 
     rules = {
@@ -156,6 +190,19 @@ local visitors = {
   },
 
   argument = {
+    enter = function(node, context)
+      if context.variableReferences then
+        local value = node.value
+        while value.kind == 'listType' or value.kind == 'nonNullType' do
+          value = value.type
+        end
+
+        if value.kind == 'variable' then
+          context.variablesUsed[value.name.value] = true
+        end
+      end
+    end,
+
     rules = { rules.uniqueInputObjectFields }
   }
 }
@@ -167,7 +214,8 @@ return function(schema, tree)
     operationNames = {},
     hasAnonymousOperation = false,
     usedFragments = {},
-    objects = {}
+    objects = {},
+    variableReferences = nil
   }
 
   local function visit(node)

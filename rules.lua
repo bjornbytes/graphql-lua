@@ -427,4 +427,15 @@ function rules.variableDefaultValuesHaveCorrectType(node, context)
   end
 end
 
+function rules.variablesAreUsed(node, context)
+  if node.variableDefinitions then
+    for _, definition in ipairs(node.variableDefinitions) do
+      local variableName = definition.variable.name.value
+      if not context.variableReferences[variableName] then
+        error('Unused variable "' .. variableName .. '"')
+      end
+    end
+  end
+end
+
 return rules

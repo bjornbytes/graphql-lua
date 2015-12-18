@@ -3,83 +3,58 @@ GraphQL Lua
 
 Lua implementation of GraphQL parser using LPeg.  Experimental.
 
-Example
+API
 ---
 
+Parsing queries:
+
 ```lua
-require 'parse' [[{
-  me {
-    firstName
-    lastName
-  }
-}]]
+local parse = require 'parse'
+local ast = parse [[
+query getUser {
+  firstName
+  lastName
+}
+]]
 ```
 
-Gives you this scary table:
+Creating schemas:
 
 ```lua
-{
-  kind = "document",
-  definitions = {
-    {
-      kind = "operation",
-      operation = "query",
-      selectionSet = {
-        kind = "selectionSet",
-        selections = {
-          {
-            kind = "field",
-            name = {
-              kind = "name",
-              value = "me"
-            },
-            selectionSet = {
-              kind = "selectionSet",
-              selections = {
-                {
-                  kind = "field",
-                  name = {
-                    kind = "name",
-                    value = "firstName"
-                  }
-                },
-                {
-                  kind = "field",
-                  name = {
-                    kind = "name",
-                    value = "lastName"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+local schema = require 'schema'
+local types = require 'types'
+
+local person = types.object {
+  name = 'Person',
+  fields = {
+    firstName = types.string.nonNull
+    lastName = types.string.nonNull
+  }
+}
+
+local schema = schema.create {
+  query = types.object {
+    name = 'Query',
+    fields = {
+      person = person
     }
   }
 }
 ```
 
-Status
+Validating schemas:
+
+```lua
+local validate = require 'validate'
+validate(schema, ast)
+```
+
+Running tests
 ---
 
-The parser can parse virtually all of the query syntax:
-
-- Documents
-- Definitions
-  - OperationDefinition
-  - FragmentDefinition
-- Selections
-- Fields
-- Aliases
-- Arguments
-- FragmentSpreads and InlineFragments
-- All value types (scalars, enums, lists, objects, variables).
-- VariableDefinitions (typed)
-- Directives
-
-The type system supports scalars, objects, enums, input objects, interfaces, and unions.  The built in scalars are
-also provided (ints, floats, strings, etc.), as well as the two wrapper types (non null and list).
+```lua
+lua tests/runner.lua
+```
 
 License
 ---

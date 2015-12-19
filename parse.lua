@@ -1,12 +1,25 @@
 local lpeg = require 'lpeg'
-local P, R, S, V, C, Ct, Cmt, Cg, Cc, Cf = lpeg.P, lpeg.R, lpeg.S, lpeg.V, lpeg.C, lpeg.Ct, lpeg.Cmt, lpeg.Cg, lpeg.Cc, lpeg.Cf
+local P, R, S, V, C, Ct, Cmt, Cg, Cc, Cf, Cmt = lpeg.P, lpeg.R, lpeg.S, lpeg.V, lpeg.C, lpeg.Ct, lpeg.Cmt, lpeg.Cg, lpeg.Cc, lpeg.Cf, lpeg.Cmt
+
+local line = 1
+local lastLinePos = 1
 
 local function pack(...)
   return { n = select('#', ...), ... }
 end
 
 -- Utility
-local space = S(' \t\r\n') ^ 0
+local space = Cmt(S(' \t\r\n') ^ 0, function(str, pos)
+  str = str:sub(lastLinePos, pos)
+  while str:find('\n') do
+    line = line + 1
+    lastLinePos = pos
+    str = str:sub(str:find('\n') + 1)
+  end
+
+  return true
+end)
+
 local comma = P(',') ^ 0
 
 local function cName(name)
@@ -278,5 +291,11 @@ local graphQL = P {
 
 return function(str)
   assert(type(str) == 'string', 'parser expects a string')
-  return graphQL:match(str)
+  local match = graphQL:match(str)
+
+  if not match then
+    error('Syntax error near line ' .. line, 2)
+  end
+
+  return match
 end

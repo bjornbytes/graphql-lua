@@ -291,6 +291,23 @@ local graphQL = P {
 
 return function(str)
   assert(type(str) == 'string', 'parser expects a string')
+
+  str = (str .. '\n'):gsub('(.-\n)', function(line)
+    local index = 1
+    while line:find('#', index) do
+      local pos = line:find('#', index) - 1
+      local chunk = line:sub(1, pos)
+      local _, quotes = chunk:gsub('([^\\]")', '')
+      if quotes % 2 == 0 then
+        return chunk .. '\n'
+      else
+        index = pos + 2
+      end
+    end
+
+    return line
+  end)
+
   local match = graphQL:match(str)
 
   if not match then

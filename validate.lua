@@ -99,7 +99,8 @@ local visitors = {
       rules.uniqueArgumentNames,
       rules.argumentsOfCorrectType,
       rules.requiredArgumentsPresent,
-      rules.directivesAreDefined
+      rules.directivesAreDefined,
+      rules.variableUsageAllowed
     }
   },
 
@@ -141,27 +142,27 @@ local visitors = {
       table.insert(context.objects, fragmentType)
 
       if context.currentOperation then
-        local function collectTransitiveVariables(node)
-          if not node then return end
+        local function collectTransitiveVariables(referencedNode)
+          if not referencedNode then return end
 
-          if node.kind == 'selectionSet' then
-            for _, selection in ipairs(node.selections) do
+          if referencedNode.kind == 'selectionSet' then
+            for _, selection in ipairs(referencedNode.selections) do
               collectTransitiveVariables(selection)
             end
-          elseif node.kind == 'field' and node.arguments then
-            for _, argument in ipairs(node.arguments) do
+          elseif referencedNode.kind == 'field' and referencedNode.arguments then
+            for _, argument in ipairs(referencedNode.arguments) do
               collectTransitiveVariables(argument)
             end
-          elseif node.kind == 'argument' then
-            return collectTransitiveVariables(node.value)
-          elseif node.kind == 'listType' or node.kind == 'nonNullType' then
-            return collectTransitiveVariables(node.type)
-          elseif node.kind == 'variable' then
-            context.variableReferences[node.name.value] = node.name.value
-          elseif node.kind == 'inlineFragment' then
-            return collectTransitiveVariables(node.selectionSet)
-          elseif node.kind == 'fragmentSpread' then
-            local fragment = context.fragmentMap[node.name.value]
+          elseif referencedNode.kind == 'argument' then
+            return collectTransitiveVariables(referencedNode.value)
+          elseif referencedNode.kind == 'listType' or referencedNode.kind == 'nonNullType' then
+            return collectTransitiveVariables(referencedNode.type)
+          elseif referencedNode.kind == 'variable' then
+            context.variableReferences[referencedNode.name.value] = true
+          elseif referencedNode.kind == 'inlineFragment' then
+            return collectTransitiveVariables(referencedNode.selectionSet)
+          elseif referencedNode.kind == 'fragmentSpread' then
+            local fragment = context.fragmentMap[referencedNode.name.value]
             return fragment and collectTransitiveVariables(fragment.selectionSet)
           end
         end
@@ -173,7 +174,8 @@ local visitors = {
     rules = {
       rules.fragmentSpreadTargetDefined,
       rules.fragmentSpreadIsPossible,
-      rules.directivesAreDefined
+      rules.directivesAreDefined,
+      rules.variableUsageAllowed
     }
   },
 

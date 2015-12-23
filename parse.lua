@@ -9,7 +9,7 @@ local function pack(...)
 end
 
 -- Utility
-local space = Cmt(S(' \t\r\n') ^ 0, function(str, pos)
+local ws = Cmt(S(' \t\r\n') ^ 0, function(str, pos)
   str = str:sub(lastLinePos, pos)
   while str:find('\n') do
     line = line + 1
@@ -22,49 +22,35 @@ end)
 
 local comma = P(',') ^ 0
 
-local function cName(name)
-  if #name == 0 then return nil end
+local _ = V
 
-  return {
-    kind = 'name',
-    value = name
-  }
+local function maybe(pattern)
+  if type(pattern) == 'string' then pattern = V(pattern) end
+  return pattern ^ -1
 end
 
-local function cInt(value)
-  return {
-    kind = 'int',
-    value = value
-  }
+local function list(pattern, min)
+  if type(pattern) == 'string' then pattern = V(pattern) end
+  min = min or 0
+  return Ct((pattern * comma * ws) ^ min)
 end
 
-local function cFloat(value)
-  return {
-    kind = 'float',
-    value = value
-  }
+-- Formatters
+local function simpleValue(key)
+  return function(value)
+    return {
+      kind = key,
+      value = value
+    }
+  end
 end
 
-local function cBoolean(value)
-  return {
-    kind = 'boolean',
-    value = value
-  }
-end
-
-local function cString(value)
-  return {
-    kind = 'string',
-    value = value
-  }
-end
-
-local function cEnum(value)
-  return {
-    kind = 'enum',
-    value = value
-  }
-end
+local cName = simpleValue('name')
+local cInt = simpleValue('int')
+local cFloat = simpleValue('float')
+local cBoolean = simpleValue('boolean')
+local cString = simpleValue('string')
+local cEnum = simpleValue('enum')
 
 local function cList(value)
   return {
@@ -244,55 +230,64 @@ local function cDirective(name, arguments)
   }
 end
 
--- "Terminals"
-local rawName = R('az', 'AZ') * (P('_') + R('09') + R('az', 'AZ')) ^ 0
+-- Simple types
+local rawName = R('az', 'AZ') * (P'_' + R'09' + R('az', 'AZ')) ^ 0
 local name = rawName / cName
-local alias = space * name * P(':') * space / cAlias
-local integerPart = P('-') ^ -1 * (P('0') + R('19') * R('09') ^ 0)
-local intValue = integerPart / cInt
-local fractionalPart = P('.') * R('09') ^ 1
-local exponentialPart = S('Ee') * S('+-') ^ -1 * R('09') ^ 1
-local floatValue = integerPart * (fractionalPart + exponentialPart + (fractionalPart * exponentialPart)) / cFloat
-local booleanValue = (P('true') + P('false')) / cBoolean
-local stringValue = P('"') * C((P('\\"') + 1 - S('"\n')) ^ 0) * P('"') / cString
-local enumValue = (rawName - 'true' - 'false' - 'null') / cEnum
 local fragmentName = (rawName - 'on') / cName
-local fragmentSpread = space * P('...') * fragmentName / cFragmentSpread
-local operationType = C(P('query') + P('mutation'))
-local variable = space * P('$') * name / cVariable
+local alias = ws * name * P':' * ws / cAlias
 
--- Nonterminals
+local integerPart = P'-' ^ -1 * ('0' + R'19' * R'09' ^ 0)
+local intValue = integerPart / cInt
+local fractionalPart = '.' * R'09' ^ 1
+local exponentialPart = S'Ee' * S'+-' ^ -1 * R'09' ^ 1
+local floatValue = integerPart * (fractionalPart + exponentialPart + (fractionalPart * exponentialPart)) / cFloat
+
+local booleanValue = (P'true' + P'false') / cBoolean
+local stringValue = P'"' * C((P'\\"' + 1 - S'"\n') ^ 0) * P'"' / cString
+local enumValue = (rawName - 'true' - 'false' - 'null') / cEnum
+local variable = ws * '$' * name / cVariable
+
+-- Grammar
 local graphQL = P {
   'document',
-  document = space * Ct((V('definition') * comma * space) ^ 0) / cDocument * -1,
-  definition = V('operation') + V('fragmentDefinition'),
-  operation = (operationType * space * name ^ -1 * V('variableDefinitions') ^ -1 * V('directives') ^ -1 * V('selectionSet') + V('selectionSet')) / cOperation,
-  fragmentDefinition = P('fragment') * space * fragmentName * space * V('typeCondition') * space * V('selectionSet') / cFragmentDefinition,
-  inlineFragment = P('...') * space * V('typeCondition') ^ -1 * V('selectionSet') / cInlineFragment,
-  selectionSet = space * P('{') * space * Ct(V('selection') ^ 0) * space * P('}') / cSelectionSet,
-  selection = space * (V('field') + fragmentSpread + V('inlineFragment')),
-  field = space * alias ^ -1 * name * V('arguments') ^ -1 * V('directives') ^ -1 * V('selectionSet') ^ -1 * comma / cField,
-  argument = space * name * P(':') * V('value') * comma / cArgument,
-  arguments = P('(') * Ct(V('argument') ^ 1) * P(')'),
-  value = space * (variable + V('objectValue') + V('listValue') + enumValue + stringValue + booleanValue + floatValue + intValue),
-  listValue = P('[') * Ct((V('value') * comma) ^ 0) * P(']') / cList,
-  objectFieldValue = space * C(rawName) * space * P(':') * space * V('value') * comma / cObjectField,
-  objectValue = P('{') * space * Ct(V('objectFieldValue') ^ 0) * space * P('}') / cObject,
-  type = V('nonNullType') + V('listType') + V('namedType'),
+  document = ws * list('definition') / cDocument * -1,
+  definition = _'operation' + _'fragmentDefinition',
+
+  operationType = C(P'query' + P'mutation'),
+  operation = (_'operationType' * ws * maybe(name) * maybe('variableDefinitions') * maybe('directives') * _'selectionSet' + _'selectionSet') / cOperation,
+  fragmentDefinition = 'fragment' * ws * fragmentName * ws * _'typeCondition' * ws * _'selectionSet' / cFragmentDefinition,
+
+  selectionSet = ws * '{' * ws * list('selection') * ws * '}' / cSelectionSet,
+  selection = ws * (_'field' + _'fragmentSpread' + _'inlineFragment'),
+
+  field = ws * maybe(alias) * name * maybe('arguments') * maybe('directives') * maybe('selectionSet') / cField,
+  fragmentSpread = ws * '...' * fragmentName / cFragmentSpread,
+  inlineFragment = ws * '...' * ws * maybe('typeCondition') * _'selectionSet' / cInlineFragment,
+  typeCondition = 'on' * ws * _'namedType',
+
+  argument = ws * name * ':' * _'value' / cArgument,
+  arguments = '(' * list('argument', 1) * ')',
+
+  directive = '@' * name * maybe('arguments') / cDirective,
+  directives = ws * list('directive', 1) * ws,
+
+  variableDefinition = ws * variable * ws * ':' * ws * _'type' * (ws * '=' * _'value') ^ -1 * comma * ws / cVariableDefinition,
+  variableDefinitions = '(' * list('variableDefinition', 1) * ')',
+
+  value = ws * (variable + _'objectValue' + _'listValue' + enumValue + stringValue + booleanValue + floatValue + intValue),
+  listValue = '[' * list('value') * ']' / cList,
+  objectFieldValue = ws * C(rawName) * ws * ':' * ws * _'value' * comma / cObjectField,
+  objectValue = '{' * ws * list('objectFieldValue') * ws * '}' / cObject,
+
+  type = _'nonNullType' + _'listType' + _'namedType',
   namedType = name / cNamedType,
-  listType = P('[') * space * V('type') * space * P(']') / cListType,
-  nonNullType = (V('namedType') + V('listType')) * P('!') / cNonNullType,
-  typeCondition = P('on') * space * V('namedType'),
-  variableDefinition = space * variable * space * P(':') * space * V('type') * (space * P('=') * V('value')) ^ -1 * comma * space / cVariableDefinition,
-  variableDefinitions = P('(') * Ct(V('variableDefinition') ^ 1) * P(')'),
-  directive = P('@') * name * V('arguments') ^ -1 / cDirective,
-  directives = space * Ct((V('directive') * comma * space) ^ 1) * space
+  listType = '[' * ws * _'type' * ws * ']' / cListType,
+  nonNullType = (_'namedType' + _'listType') * '!' / cNonNullType
 }
 
-return function(str)
-  assert(type(str) == 'string', 'parser expects a string')
-
-  str = (str .. '\n'):gsub('(.-\n)', function(line)
+-- TODO doesn't handle quotes that immediately follow escaped backslashes.
+local function stripComments(str)
+  return (str .. '\n'):gsub('(.-\n)', function(line)
     local index = 1
     while line:find('#', index) do
       local pos = line:find('#', index) - 1
@@ -307,12 +302,9 @@ return function(str)
 
     return line
   end)
+end
 
-  local match = graphQL:match(str)
-
-  if not match then
-    error('Syntax error near line ' .. line, 2)
-  end
-
-  return match
+return function(str)
+  assert(type(str) == 'string', 'parser expects a string')
+  return graphQL:match(stripComments(str)) or error('Syntax error near line ' .. line, 2)
 end

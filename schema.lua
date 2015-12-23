@@ -56,8 +56,10 @@ function schema.create(config)
 
   generateTypeMap(self.query)
 
-  for _, directive in ipairs(self.directives) do
-    self.directiveMap[directive.name] = directive
+  if self.directives then
+    for _, directive in ipairs(self.directives) do
+      self.directiveMap[directive.name] = directive
+    end
   end
 
   return setmetatable(self, schema)

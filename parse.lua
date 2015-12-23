@@ -306,5 +306,6 @@ end
 
 return function(str)
   assert(type(str) == 'string', 'parser expects a string')
-  return graphQL:match(stripComments(str)) or error('Syntax error near line ' .. line, 2)
+  str = stripComments(str)
+  return graphQL:match(str) or error('Syntax error near line ' .. line, 2)
 end

@@ -199,7 +199,7 @@ types.string = types.scalar({
 })
 
 local function toboolean(x)
-  return x and true or false
+  return (x and x ~= 'false') and true or false
 end
 
 types.boolean = types.scalar({
@@ -207,7 +207,11 @@ types.boolean = types.scalar({
   serialize = toboolean,
   parseValue = toboolean,
   parseLiteral = function(node)
-    return node.kind == 'boolean' and node.value or nil
+    if node.kind == 'boolean' then
+      return toboolean(node.value)
+    else
+      return nil
+    end
   end
 })
 

@@ -1,8 +1,8 @@
 local lpeg = require 'lpeg'
 local P, R, S, V, C, Ct, Cmt, Cg, Cc, Cf, Cmt = lpeg.P, lpeg.R, lpeg.S, lpeg.V, lpeg.C, lpeg.Ct, lpeg.Cmt, lpeg.Cg, lpeg.Cc, lpeg.Cf, lpeg.Cmt
 
-local line = 1
-local lastLinePos = 1
+local line
+local lastLinePos
 
 local function pack(...)
   return { n = select('#', ...), ... }
@@ -307,5 +307,6 @@ end
 return function(str)
   assert(type(str) == 'string', 'parser expects a string')
   str = stripComments(str)
+  line, lastLinePos = 1, 1
   return graphQL:match(str) or error('Syntax error near line ' .. line, 2)
 end

@@ -33,7 +33,7 @@ end
 local function list(pattern, min)
   if type(pattern) == 'string' then pattern = V(pattern) end
   min = min or 0
-  return Ct((pattern * comma * ws) ^ min)
+  return Ct((pattern * ws * comma * ws) ^ min)
 end
 
 -- Formatters
@@ -122,10 +122,11 @@ local function cSelectionSet(selections)
   }
 end
 
-local function cFragmentSpread(name)
+local function cFragmentSpread(name, directives)
   return {
     kind = 'fragmentSpread',
-    name = name
+    name = name,
+    directives = directives
   }
 end
 
@@ -199,18 +200,16 @@ end
 
 local function cInlineFragment(...)
   local args = pack(...)
-  if #args == 2 then
-    return {
-      kind = 'inlineFragment',
-      typeCondition = args[1],
-      selectionSet = args[2]
-    }
-  elseif #args == 1 then
-    return {
-      kind = 'inlineFragment',
-      selectionSet = args[1]
-    }
+  local result = { kind = 'inlineFragment' }
+  result.selectionSet = args[#args]
+  for i = 1, #args - 1 do
+    if args[i].kind == 'namedType' or args[i].kind == 'listType' or args[i].kind == 'nonNullType' then
+      result.typeCondition = args[i]
+    elseif args[i][1] and args[i][1].kind == 'directive' then
+      result.directives = args[i]
+    end
   end
+  return result
 end
 
 local function cVariable(name)
@@ -268,8 +267,8 @@ local graphQL = P {
   selection = ws * (_'field' + _'fragmentSpread' + _'inlineFragment'),
 
   field = ws * maybe(alias) * name * maybe('arguments') * maybe('directives') * maybe('selectionSet') / cField,
-  fragmentSpread = ws * '...' * ws * fragmentName / cFragmentSpread,
-  inlineFragment = ws * '...' * ws * maybe('typeCondition') * _'selectionSet' / cInlineFragment,
+  fragmentSpread = ws * '...' * ws * fragmentName * maybe('directives') / cFragmentSpread,
+  inlineFragment = ws * '...' * ws * maybe('typeCondition') * maybe('directives') * _'selectionSet' / cInlineFragment,
   typeCondition = 'on' * ws * _'namedType',
 
   argument = ws * name * ':' * _'value' / cArgument,

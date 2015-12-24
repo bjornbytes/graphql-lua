@@ -204,15 +204,27 @@ describe('parse', function()
     end)
   end)
 
-  test('fragmentSpread', function()
+  describe('fragmentSpread', function()
     local fragmentSpread
 
-    expect(function() parse('{..a}') end).to.fail()
-    expect(function() parse('{...}') end).to.fail()
+    test('name', function()
+      expect(function() parse('{..a}') end).to.fail()
+      expect(function() parse('{...}') end).to.fail()
 
-    fragmentSpread = parse('{...a}').definitions[1].selectionSet.selections[1]
-    expect(fragmentSpread.kind).to.equal('fragmentSpread')
-    expect(fragmentSpread.name.value).to.equal('a')
+      fragmentSpread = parse('{...a}').definitions[1].selectionSet.selections[1]
+      expect(fragmentSpread.kind).to.equal('fragmentSpread')
+      expect(fragmentSpread.name.value).to.equal('a')
+    end)
+
+    test('directives', function()
+      expect(function() parse('{...a@}') end).to.fail()
+
+      fragmentSpread = parse('{...a}').definitions[1].selectionSet.selections[1]
+      expect(fragmentSpread.directives).to_not.exist()
+
+      fragmentSpread = parse('{...a@skip}').definitions[1].selectionSet.selections[1]
+      expect(fragmentSpread.directives).to.exist()
+    end)
   end)
 
   describe('inlineFragment', function()
@@ -228,6 +240,19 @@ describe('parse', function()
       inlineFragment = parse('{...on a{}}').definitions[1].selectionSet.selections[1]
       expect(inlineFragment.typeCondition).to.exist()
       expect(inlineFragment.typeCondition.name.value).to.equal('a')
+    end)
+
+    test('directives', function()
+      expect(function() parse('{...on a @ {}}') end).to.fail()
+
+      inlineFragment = parse('{...{}}').definitions[1].selectionSet.selections[1]
+      expect(inlineFragment.directives).to_not.exist()
+
+      inlineFragment = parse('{...@skip{}}').definitions[1].selectionSet.selections[1]
+      expect(inlineFragment.directives).to.exist()
+
+      inlineFragment = parse('{...on a@skip {}}').definitions[1].selectionSet.selections[1]
+      expect(inlineFragment.directives).to.exist()
     end)
 
     test('selectionSet', function()

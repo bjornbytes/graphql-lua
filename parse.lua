@@ -1,5 +1,6 @@
 local lpeg = require 'lpeg'
-local P, R, S, V, C, Ct, Cmt, Cg, Cc, Cf, Cmt = lpeg.P, lpeg.R, lpeg.S, lpeg.V, lpeg.C, lpeg.Ct, lpeg.Cmt, lpeg.Cg, lpeg.Cc, lpeg.Cf, lpeg.Cmt
+local P, R, S, V = lpeg.P, lpeg.R, lpeg.S, lpeg.V
+local C, Ct, Cmt, Cg, Cc, Cf, Cmt = lpeg.C, lpeg.Ct, lpeg.Cmt, lpeg.Cg, lpeg.Cc, lpeg.Cf, lpeg.Cmt
 
 local line
 local lastLinePos
@@ -49,8 +50,14 @@ local cName = simpleValue('name')
 local cInt = simpleValue('int')
 local cFloat = simpleValue('float')
 local cBoolean = simpleValue('boolean')
-local cString = simpleValue('string')
 local cEnum = simpleValue('enum')
+
+local cString = function(value)
+  return {
+    kind = 'string',
+    value = value:gsub('\\"', '"')
+  }
+end
 
 local function cList(value)
   return {
@@ -240,7 +247,7 @@ local integerPart = P'-' ^ -1 * ('0' + R'19' * R'09' ^ 0)
 local intValue = integerPart / cInt
 local fractionalPart = '.' * R'09' ^ 1
 local exponentialPart = S'Ee' * S'+-' ^ -1 * R'09' ^ 1
-local floatValue = integerPart * (fractionalPart + exponentialPart + (fractionalPart * exponentialPart)) / cFloat
+local floatValue = integerPart * ((fractionalPart * exponentialPart) + fractionalPart + exponentialPart) / cFloat
 
 local booleanValue = (P'true' + P'false') / cBoolean
 local stringValue = P'"' * C((P'\\"' + 1 - S'"\n') ^ 0) * P'"' / cString
@@ -261,7 +268,7 @@ local graphQL = P {
   selection = ws * (_'field' + _'fragmentSpread' + _'inlineFragment'),
 
   field = ws * maybe(alias) * name * maybe('arguments') * maybe('directives') * maybe('selectionSet') / cField,
-  fragmentSpread = ws * '...' * fragmentName / cFragmentSpread,
+  fragmentSpread = ws * '...' * ws * fragmentName / cFragmentSpread,
   inlineFragment = ws * '...' * ws * maybe('typeCondition') * _'selectionSet' / cInlineFragment,
   typeCondition = 'on' * ws * _'namedType',
 
@@ -272,7 +279,7 @@ local graphQL = P {
   directives = ws * list('directive', 1) * ws,
 
   variableDefinition = ws * variable * ws * ':' * ws * _'type' * (ws * '=' * _'value') ^ -1 * comma * ws / cVariableDefinition,
-  variableDefinitions = '(' * list('variableDefinition', 1) * ')',
+  variableDefinitions = ws * '(' * list('variableDefinition', 1) * ')',
 
   value = ws * (variable + _'objectValue' + _'listValue' + enumValue + stringValue + booleanValue + floatValue + intValue),
   listValue = '[' * list('value') * ']' / cList,

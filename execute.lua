@@ -15,13 +15,8 @@ local function typeFromAST(node, schema)
   end
 end
 
-local function defaultResolver(source, arguments, info)
-  local property = source[info.fieldName]
-  return type(property) == 'function' and property(source) or property
-end
-
-local function getFieldEntryKey(selection)
-  return selection.alias and selection.alias.name.value or selection.name.value
+local function getFieldResponseKey(field)
+  return field.alias and field.alias.name.value or field.name.value
 end
 
 local function shouldIncludeNode(selection, context)
@@ -65,31 +60,23 @@ local function doesFragmentApply(fragment, type, context)
   end
 end
 
-local function collectFields(selectionSet, type, fields, visitedFragments, context)
-  for _, selection in ipairs(selectionSet.selections) do
-    if selection.kind == 'field' then
-      if shouldIncludeNode(selection) then
-        local name = getFieldEntryKey(selection)
-        fields[name] = fields[name] or {}
-        table.insert(fields[name], selection)
-      end
-    elseif selection.kind == 'inlineFragment' then
-      if shouldIncludeNode(selection) and doesFragmentApply(selection, type, context) then
-        collectFields(selection.selectionSet, type, fields, visitedFragments, context)
-      end
-    elseif selection.kind == 'fragmentSpread' then
-      local fragmentName = selection.name.value
-      if shouldIncludeNode(selection) and not visitedFragments[fragmentName] then
-        visitedFragments[fragmentName] = true
-        local fragment = context.fragmentMap[fragmentName]
-        if fragment and shouldIncludeNode(fragment) and doesFragmentApply(fragment, type, context) then
-          collectFields(fragment.selectionSet, type, fields, visitedFragments, context)
-        end
+local function mergeSelectionSets(fields)
+  local selectionSet = {}
+
+  for i = 1, #fields do
+    local selectionSet = fields[i].selectionSet
+    if selectionSet then
+      for j = 1, #selectionSet.selections do
+        table.insert(selectionSet, selectionSet.selections[j])
       end
     end
   end
 
-  return fields
+  return selectionSet
+end
+
+local function defaultResolver(object, fields, info)
+  return object[fields[1].name.value]
 end
 
 local function buildContext(schema, tree, variables, operationName)
@@ -125,41 +112,67 @@ local function buildContext(schema, tree, variables, operationName)
   return context
 end
 
-local function executeFields(parentType, rootValue, fieldGroups, context)
-  local result = {}
-
-  for name, fieldGroup in pairs(fieldGroups) do
-    result[name] = resolveField(parentType, rootValue, fieldGroup, context)
+local function collectFields(objectType, selectionSet, visitedFragments, result, context)
+  for _, selection in ipairs(selectionSet.selections) do
+    if selection.kind == 'field' then
+      if shouldIncludeNode(selection) then
+        local name = getFieldResponseKey(selection)
+        result[name] = result[name] or {}
+        table.insert(result[name], selection)
+      end
+    elseif selection.kind == 'inlineFragment' then
+      if shouldIncludeNode(selection) and doesFragmentApply(selection, objectType, context) then
+        collectFields(objectType, selection.selectionSet, visitedFragments, result, context)
+      end
+    elseif selection.kind == 'fragmentSpread' then
+      local fragmentName = selection.name.value
+      if shouldIncludeNode(selection) and not visitedFragments[fragmentName] then
+        visitedFragments[fragmentName] = true
+        local fragment = context.fragmentMap[fragmentName]
+        if fragment and shouldIncludeNode(fragment) and doesFragmentApply(fragment, objectType, context) then
+          collectFields(objectType, fragment.selectionSet, visitedFragments, result, context)
+        end
+      end
+    end
   end
 
   return result
 end
 
-local function resolveField(parentType, rootValue, fields, context)
-  local field = fields[1]
-  local fieldName = field.name.value
-
-  local fieldType = parentType.fields[fieldName]
-  local returnType = fieldType.kind
-
-  local info = {
-    fieldName = fieldName,
-    fields = fields,
-    returnType = returnType,
-    parentType = parentType,
-    schema = context.schema,
-    fragments = context.fragmentMap,
-    rootValue = rootValue,
-    operation = context.operation,
-    variables = context.variables
-  }
-
-  local resolve = fieldType.resolve or defaultResolver
-
-  local result = resolve(source, {}, info)
+local function completeValue(fieldType, result, subSelectionSet)
+  return result -- TODO
 end
 
-return function(schema, tree, rootValue, variables, operationName)
+local function getFieldEntry(objectType, object, fields)
+  local firstField = fields[1]
+  local responseKey = getFieldResponseKey(firstField)
+  local fieldType = objectType.fields[firstField.name.value]
+
+  if fieldType == nil then
+    return nil
+  end
+
+  -- TODO correct arguments to resolve
+  local resolvedObject = (fieldType.resolve or defaultResolver)(object, fields, {})
+
+  if not resolvedObject then
+    return nil -- TODO null
+  end
+
+  local subSelectionSet = mergeSelectionSets(fields)
+  local responseValue = completeValue(fieldType, resolvedObject, subSelectionSet)
+  return responseValue
+end
+
+local function evaluateSelectionSet(objectType, object, selectionSet, context)
+  local groupedFieldSet = collectFields(objectType, selectionSet, {}, {}, context)
+
+  return util.map(groupedFieldSet, function(fields)
+    return getFieldEntry(objectType, object, fields)
+  end)
+end
+
+return function(schema, tree, variables, operationName, rootValue)
   local context = buildContext(schema, tree, variables, operationName)
   local rootType = schema[context.operation.operation]
 
@@ -167,6 +180,5 @@ return function(schema, tree, rootValue, variables, operationName)
     error('Unsupported operation "' .. context.operation.operation .. '"')
   end
 
-  local fieldGroups = collectFields(context.operation.selectionSet, rootType, {}, {}, context)
-  return executeFields(rootType, rootValue, fieldGroups, context)
+  return evaluateSelectionSet(rootType, rootValue, context.operation.selectionSet, context)
 end

@@ -55,7 +55,8 @@ function types.object(config)
     fields[fieldName] = {
       name = fieldName,
       kind = field.kind,
-      arguments = field.arguments or {}
+      arguments = field.arguments or {},
+      resolve = field.resolve
     }
   end
 

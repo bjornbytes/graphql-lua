@@ -17,7 +17,7 @@ function util.coerceValue(node, schemaType, variables)
   variables = variables or {}
 
   if schemaType.__type == 'NonNull' then
-    return util.coerceValue(node, schemaType.ofType)
+    return util.coerceValue(node, schemaType.ofType, variables)
   end
 
   if not node then
@@ -34,7 +34,7 @@ function util.coerceValue(node, schemaType, variables)
     end
 
     return util.map(node.values, function(value)
-      return util.coerceValue(node.values[i], schemaType.ofType)
+      return util.coerceValue(node.values[i], schemaType.ofType, variables)
     end)
   end
 
@@ -48,7 +48,7 @@ function util.coerceValue(node, schemaType, variables)
         error('Unknown input object field "' .. field.name .. '"')
       end
 
-      return util.coerceValue(schemaType.fields[field.name].kind, field.value)
+      return util.coerceValue(schemaType.fields[field.name].kind, field.value, variables)
     end)
   end
 

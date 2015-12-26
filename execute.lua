@@ -34,7 +34,7 @@ local function shouldIncludeNode(selection, context)
 
       if not ifArgument then return end
 
-      return util.coerceValue(ifArgument.value, _type.arguments['if'])
+      return util.coerceValue(ifArgument.value, _type.arguments['if'], context.variables)
     end
 
     if isDirectiveActive('skip', types.skip) then return false end
@@ -52,27 +52,28 @@ local function doesFragmentApply(fragment, type, context)
   if innerType == type then
     return true
   elseif innerType.__type == 'Interface' then
-    return schema:getImplementors(type)[innerType]
+    local implementors = context.schema:getImplementors(innerType.name)
+    return implementors and implementors[type]
   elseif innerType.__type == 'Union' then
-    return util.find(type.types, function(member)
-      return member == innerType
+    return util.find(innerType.types, function(member)
+      return member == type
     end)
   end
 end
 
 local function mergeSelectionSets(fields)
-  local selectionSet = {}
+  local selections = {}
 
   for i = 1, #fields do
     local selectionSet = fields[i].selectionSet
     if selectionSet then
       for j = 1, #selectionSet.selections do
-        table.insert(selectionSet, selectionSet.selections[j])
+        table.insert(selections, selectionSet.selections[j])
       end
     end
   end
 
-  return selectionSet
+  return selections
 end
 
 local function defaultResolver(object, fields, info)
@@ -112,25 +113,25 @@ local function buildContext(schema, tree, variables, operationName)
   return context
 end
 
-local function collectFields(objectType, selectionSet, visitedFragments, result, context)
-  for _, selection in ipairs(selectionSet.selections) do
+local function collectFields(objectType, selections, visitedFragments, result, context)
+  for _, selection in ipairs(selections) do
     if selection.kind == 'field' then
-      if shouldIncludeNode(selection) then
+      if shouldIncludeNode(selection, context) then
         local name = getFieldResponseKey(selection)
         result[name] = result[name] or {}
         table.insert(result[name], selection)
       end
     elseif selection.kind == 'inlineFragment' then
-      if shouldIncludeNode(selection) and doesFragmentApply(selection, objectType, context) then
-        collectFields(objectType, selection.selectionSet, visitedFragments, result, context)
+      if shouldIncludeNode(selection, context) and doesFragmentApply(selection, objectType, context) then
+        collectFields(objectType, selection.selectionSet.selections, visitedFragments, result, context)
       end
     elseif selection.kind == 'fragmentSpread' then
       local fragmentName = selection.name.value
-      if shouldIncludeNode(selection) and not visitedFragments[fragmentName] then
+      if shouldIncludeNode(selection, context) and not visitedFragments[fragmentName] then
         visitedFragments[fragmentName] = true
         local fragment = context.fragmentMap[fragmentName]
-        if fragment and shouldIncludeNode(fragment) and doesFragmentApply(fragment, objectType, context) then
-          collectFields(objectType, fragment.selectionSet, visitedFragments, result, context)
+        if fragment and shouldIncludeNode(fragment, context) and doesFragmentApply(fragment, objectType, context) then
+          collectFields(objectType, fragment.selectionSet.selections, visitedFragments, result, context)
         end
       end
     end
@@ -139,11 +140,57 @@ local function collectFields(objectType, selectionSet, visitedFragments, result,
   return result
 end
 
-local function completeValue(fieldType, result, subSelectionSet)
-  return result -- TODO
+local evaluateSelections
+
+local function completeValue(fieldType, result, subSelections, context)
+  local fieldTypeName = fieldType.__type
+
+  if fieldTypeName == 'NonNull' then
+    local innerType = fieldType.ofType
+    local completedResult = completeValue(innerType, result, context)
+
+    if not completedResult then
+      error('No value provided for non-null ' .. innerType.name)
+    end
+
+    return completedResult
+  end
+
+  if not result then
+    return nil
+  end
+
+  if fieldTypeName == 'List' then
+    local innerType = fieldType.ofType
+
+    if type(result) ~= 'table' then
+      error('Expected a table for ' .. innerType.name .. ' list')
+    end
+
+    local values = {}
+
+    for i, value in ipairs(values) do
+      values[i] = completeValue(innerType, value, context)
+    end
+
+    return values
+  end
+
+  if fieldTypeName == 'Scalar' or fieldTypeName == 'Enum' then
+    return fieldType.serialize(result)
+  end
+
+  if fieldTypeName == 'Object' then
+    return evaluateSelections(fieldType, result, subSelections, context)
+  elseif fieldTypeName == 'Interface' or fieldTypeName == 'Union' then
+    local objectType = fieldType.resolveType(result)
+    return evaluateSelections(objectType, result, subSelections, context)
+  end
+
+  error('Unknown type "' .. fieldTypeName .. '" for field "' .. field.name .. '"')
 end
 
-local function getFieldEntry(objectType, object, fields)
+local function getFieldEntry(objectType, object, fields, context)
   local firstField = fields[1]
   local responseKey = getFieldResponseKey(firstField)
   local fieldType = objectType.fields[firstField.name.value]
@@ -155,20 +202,16 @@ local function getFieldEntry(objectType, object, fields)
   -- TODO correct arguments to resolve
   local resolvedObject = (fieldType.resolve or defaultResolver)(object, fields, {})
 
-  if not resolvedObject then
-    return nil -- TODO null
-  end
-
-  local subSelectionSet = mergeSelectionSets(fields)
-  local responseValue = completeValue(fieldType, resolvedObject, subSelectionSet)
+  local subSelections = mergeSelectionSets(fields)
+  local responseValue = completeValue(fieldType.kind, resolvedObject, subSelections, context)
   return responseValue
 end
 
-local function evaluateSelectionSet(objectType, object, selectionSet, context)
-  local groupedFieldSet = collectFields(objectType, selectionSet, {}, {}, context)
+evaluateSelections = function(objectType, object, selections, context)
+  local groupedFieldSet = collectFields(objectType, selections, {}, {}, context)
 
   return util.map(groupedFieldSet, function(fields)
-    return getFieldEntry(objectType, object, fields)
+    return getFieldEntry(objectType, object, fields, context)
   end)
 end
 
@@ -180,5 +223,5 @@ return function(schema, tree, variables, operationName, rootValue)
     error('Unsupported operation "' .. context.operation.operation .. '"')
   end
 
-  return evaluateSelectionSet(rootType, rootValue, context.operation.selectionSet, context)
+  return evaluateSelections(rootType, rootValue, context.operation.selectionSet.selections, context)
 end

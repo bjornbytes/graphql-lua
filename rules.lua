@@ -128,7 +128,7 @@ function rules.unambiguousSelections(node, context)
   local function validateSelectionSet(selectionSet, parentType)
     for _, selection in ipairs(selectionSet.selections) do
       if selection.kind == 'field' then
-        if not parentType or not parentType.fields[selection.name.value] then return end
+        if not parentType or not parentType.fields or not parentType.fields[selection.name.value] then return end
 
         local key = selection.alias and selection.alias.name.value or selection.name.value
         local definition = parentType.fields[selection.name.value].kind

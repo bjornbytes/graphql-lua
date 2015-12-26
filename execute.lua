@@ -76,13 +76,14 @@ local function mergeSelectionSets(fields)
   return selections
 end
 
-local function defaultResolver(object, fields, info)
-  return object[fields[1].name.value]
+local function defaultResolver(object, arguments, info)
+  return object[info.fieldASTs[1].name.value]
 end
 
-local function buildContext(schema, tree, variables, operationName)
+local function buildContext(schema, tree, rootValue, variables, operationName)
   local context = {
     schema = schema,
+    rootValue = rootValue,
     variables = variables,
     operation = nil,
     fragmentMap = {}
@@ -149,14 +150,14 @@ local function completeValue(fieldType, result, subSelections, context)
     local innerType = fieldType.ofType
     local completedResult = completeValue(innerType, result, context)
 
-    if not completedResult then
+    if completedResult == nil then
       error('No value provided for non-null ' .. innerType.name)
     end
 
     return completedResult
   end
 
-  if not result then
+  if result == nil then
     return nil
   end
 
@@ -192,15 +193,37 @@ end
 
 local function getFieldEntry(objectType, object, fields, context)
   local firstField = fields[1]
+  local fieldName = firstField.name.value
   local responseKey = getFieldResponseKey(firstField)
-  local fieldType = objectType.fields[firstField.name.value]
+  local fieldType = objectType.fields[fieldName]
 
   if fieldType == nil then
     return nil
   end
 
-  -- TODO correct arguments to resolve
-  local resolvedObject = (fieldType.resolve or defaultResolver)(object, fields, {})
+  local argumentMap = {}
+  for _, argument in ipairs(firstField.arguments or {}) do
+    argumentMap[argument.name.value] = argument
+  end
+
+  local arguments = util.map(fieldType.arguments, function(argument, name)
+    local supplied = argumentMap[name] and argumentMap[name].value
+    return supplied and util.coerceValue(supplied, argument, context.variables) or argument.defaultValue
+  end)
+
+  local info = {
+    fieldName = fieldName,
+    fieldASTs = fields,
+    returnType = fieldType.kind,
+    parentType = objectType,
+    schema = context.schema,
+    fragments = context.fragmentMap,
+    rootValue = context.rootValue,
+    operation = context.operation,
+    variableValues = context.variables
+  }
+
+  local resolvedObject = (fieldType.resolve or defaultResolver)(object, arguments, info)
 
   local subSelections = mergeSelectionSets(fields)
   local responseValue = completeValue(fieldType.kind, resolvedObject, subSelections, context)
@@ -215,8 +238,8 @@ evaluateSelections = function(objectType, object, selections, context)
   end)
 end
 
-return function(schema, tree, variables, operationName, rootValue)
-  local context = buildContext(schema, tree, variables, operationName)
+return function(schema, tree, rootValue, variables, operationName)
+  local context = buildContext(schema, tree, rootValue, variables, operationName)
   local rootType = schema[context.operation.operation]
 
   if not rootType then

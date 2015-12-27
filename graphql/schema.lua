@@ -1,4 +1,5 @@
-local types = require 'types'
+local path = (...):gsub('%.[^%.]+$', '')
+local types = require(path .. '.types')
 
 local schema = {}
 schema.__index = schema

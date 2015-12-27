@@ -1,5 +1,6 @@
-local types = require 'types'
-local util = require 'util'
+local path = (...):gsub('%.[^%.]+$', '')
+local types = require(path .. '.types')
+local util = require(path .. '.util')
 
 local rules = {}
 

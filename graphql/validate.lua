@@ -1,4 +1,5 @@
-local rules = require 'rules'
+local path = (...):gsub('%.[^%.]+$', '')
+local rules = require(path .. '.rules')
 
 local visitors = {
   document = {

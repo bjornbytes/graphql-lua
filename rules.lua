@@ -139,21 +139,18 @@ function rules.unambiguousSelections(node, context)
           definition = definition
         }
 
-        if seen[definition] then
-          return
-        end
-
-        seen[definition] = true
-
         validateField(key, fieldEntry)
       elseif selection.kind == 'inlineFragment' then
         local parentType = selection.typeCondition and context.schema:getType(selection.typeCondition.name.value) or parentType
         validateSelectionSet(selection.selectionSet, parentType)
       elseif selection.kind == 'fragmentSpread' then
         local fragmentDefinition = context.fragmentMap[selection.name.value]
-        if fragmentDefinition and fragmentDefinition.typeCondition then
-          local parentType = context.schema:getType(fragmentDefinition.typeCondition.name.value)
-          validateSelectionSet(fragmentDefinition.selectionSet, parentType)
+        if not seen[fragmentDefinition] then
+          seen[fragmentDefinition] = true
+          if fragmentDefinition and fragmentDefinition.typeCondition then
+            local parentType = context.schema:getType(fragmentDefinition.typeCondition.name.value)
+            validateSelectionSet(fragmentDefinition.selectionSet, parentType)
+          end
         end
       end
     end
@@ -414,10 +411,14 @@ function rules.variableUsageAllowed(node, context)
     if node.kind == 'field' then
       arguments = { [node.name.value] = node.arguments }
     elseif node.kind == 'fragmentSpread' then
+      local seen = {}
       local function collectArguments(referencedNode)
         if referencedNode.kind == 'selectionSet' then
           for _, selection in ipairs(referencedNode.selections) do
-            collectArguments(selection)
+            if not seen[selection] then
+              seen[selection] = true
+              collectArguments(selection)
+            end
           end
         elseif referencedNode.kind == 'field' and referencedNode.arguments then
           local fieldName = referencedNode.name.value

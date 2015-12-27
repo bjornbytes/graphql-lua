@@ -142,12 +142,16 @@ local visitors = {
       table.insert(context.objects, fragmentType)
 
       if context.currentOperation then
+        local seen = {}
         local function collectTransitiveVariables(referencedNode)
           if not referencedNode then return end
 
           if referencedNode.kind == 'selectionSet' then
             for _, selection in ipairs(referencedNode.selections) do
-              collectTransitiveVariables(selection)
+              if not seen[selection] then
+                seen[selection] = true
+                collectTransitiveVariables(selection)
+              end
             end
           elseif referencedNode.kind == 'field' and referencedNode.arguments then
             for _, argument in ipairs(referencedNode.arguments) do

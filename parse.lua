@@ -239,7 +239,7 @@ end
 -- Simple types
 local rawName = R('az', 'AZ') * (P'_' + R'09' + R('az', 'AZ')) ^ 0
 local name = rawName / cName
-local fragmentName = (rawName - 'on') / cName
+local fragmentName = (rawName - ('on' * -rawName)) / cName
 local alias = ws * name * P':' * ws / cAlias
 
 local integerPart = P'-' ^ -1 * ('0' + R'19' * R'09' ^ 0)
@@ -307,7 +307,7 @@ local function stripComments(str)
     end
 
     return line
-  end)
+  end):sub(1, -2)
 end
 
 return function(str)

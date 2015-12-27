@@ -97,7 +97,9 @@ local query = types.object({
           kind = types.string
         }
       }
-    }
+    },
+    pet = pet,
+    catOrDog = catOrDog
   }
 })
 

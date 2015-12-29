@@ -1,7 +1,7 @@
 GraphQL Lua
 ===
 
-Lua implementation of GraphQL parser using LPeg.
+Lua implementation of GraphQL.
 
 API
 ---

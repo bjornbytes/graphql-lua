@@ -1,7 +1,7 @@
 GraphQL Lua
 ===
 
-Lua implementation of GraphQL parser using LPeg.  Experimental.
+Lua implementation of GraphQL parser using LPeg.
 
 API
 ---
@@ -9,7 +9,7 @@ API
 Parsing queries:
 
 ```lua
-local parse = require 'parse'
+local parse = require 'graphql.parse'
 local ast = parse [[
 query getUser {
   firstName
@@ -21,8 +21,8 @@ query getUser {
 Creating schemas:
 
 ```lua
-local schema = require 'schema'
-local types = require 'types'
+local schema = require 'graphql.schema'
+local types = require 'graphql.types'
 
 local person = types.object {
   name = 'Person',
@@ -45,8 +45,21 @@ local schema = schema.create {
 Validating schemas:
 
 ```lua
-local validate = require 'validate'
+local validate = require 'graphql.validate'
 validate(schema, ast)
+```
+
+Executing queries:
+
+```lua
+local execute = require 'graphql.execute'
+local rootValue = {}
+local variables = {
+  foo = 'bar'
+}
+local operationName = 'myOperation'
+
+execute(schema, ast, rootValue, variables, operationName)
 ```
 
 Running tests

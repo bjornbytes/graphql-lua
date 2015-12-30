@@ -1,5 +1,5 @@
-local parse = require 'parse'
-local validate = require 'validate'
+local parse = require 'graphql.parse'
+local validate = require 'graphql.validate'
 local schema = require 'tests/data/schema'
 
 local function expectError(message, document)
@@ -248,9 +248,87 @@ describe('rules', function()
     it('fails if a fragment is not used', function()
       expectError(message, 'fragment f on Dog {}')
     end)
+  end)
 
-    it('passes if every fragment is used', function()
-      expectError(nil, '{ dog { ...f } } fragment f on Dog {}')
+  describe('fragmentSpreadTargetDefined', function()
+    local message = 'Fragment spread refers to non%-existent'
+
+    it('fails if the fragment does not exist', function()
+      expectError(message, '{ dog { ...f } }')
+    end)
+  end)
+
+  describe('fragmentDefinitionHasNoCycles', function()
+    local message = 'Fragment definition has cycles'
+
+    it('fails if a fragment spread has cycles', function()
+      expectError(message, [[
+        { dog { ...f } }
+        fragment f on Dog { ...g }
+        fragment g on Dog { ...h }
+        fragment h on Dog { ...f }
+      ]])
+    end)
+  end)
+
+  describe('fragmentSpreadIsPossible', function()
+    local message = 'Fragment type condition is not possible'
+
+    it('fails if a fragment type condition refers to a different object than the parent object', function()
+      expectError(message, [[
+        { dog { ...f } }
+        fragment f on Cat { }
+      ]])
+    end)
+
+    it('fails if a fragment type condition refers to an interface that the parent object does not implement', function()
+      expectError(message, [[
+        { dog { ...f } }
+        fragment f on Sentient { }
+      ]])
+    end)
+
+    it('fails if a fragment type condition refers to a union that the parent object does not belong to', function()
+      expectError(message, [[
+        { dog { ...f } }
+        fragment f on HumanOrAlien { }
+      ]])
+    end)
+  end)
+
+  describe('uniqueInputObjectFields', function()
+    local message = 'Multiple input object fields named'
+
+    it('fails if an input object has two fields with the same name', function()
+      expectError(message, [[
+        {
+          dog {
+            complicatedField(complicatedArgument: {x: "hi", x: "hi"})
+          }
+        }
+      ]])
+    end)
+
+    it('passes if an input object has nested fields with the same name', function()
+      expectError(nil, [[
+        {
+          dog {
+            complicatedField(complicatedArgument: {x: "hi", z: {x: "hi"}})
+          }
+        }
+      ]])
+    end)
+  end)
+
+  describe('directivesAreDefined', function()
+    local message = 'Unknown directive'
+
+    it('fails if a directive does not exist', function()
+      expectError(message, 'query @someRandomDirective {}')
+    end)
+
+    it('passes if directives exists', function()
+      expectError(nil, 'query @skip {}')
     end)
   end)
 end)

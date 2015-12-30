@@ -146,7 +146,7 @@ function rules.unambiguousSelections(node, context)
         validateSelectionSet(selection.selectionSet, parentType)
       elseif selection.kind == 'fragmentSpread' then
         local fragmentDefinition = context.fragmentMap[selection.name.value]
-        if not seen[fragmentDefinition] then
+        if fragmentDefinition and not seen[fragmentDefinition] then
           seen[fragmentDefinition] = true
           if fragmentDefinition and fragmentDefinition.typeCondition then
             local parentType = context.schema:getType(fragmentDefinition.typeCondition.name.value)

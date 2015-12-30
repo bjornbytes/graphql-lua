@@ -138,6 +138,9 @@ local visitors = {
       context.usedFragments[node.name.value] = true
 
       local fragment = context.fragmentMap[node.name.value]
+
+      if not fragment then return end
+
       local fragmentType = context.schema:getType(fragment.typeCondition.name.value) or false
 
       table.insert(context.objects, fragmentType)

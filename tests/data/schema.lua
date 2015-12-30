@@ -1,5 +1,5 @@
-local types = require 'types'
-local schema = require 'schema'
+local types = require 'graphql.types'
+local schema = require 'graphql.schema'
 
 local dogCommand = types.enum({
   name = 'DogCommand',
@@ -35,6 +35,25 @@ local dog = types.object({
       kind = types.boolean.nonNull,
       arguments = {
         atOtherHomes = types.boolean
+      }
+    },
+    complicatedField = {
+      kind = types.boolean,
+      arguments = {
+        complicatedArgument = types.inputObject({
+          name = 'complicated',
+          fields = {
+            x = types.string,
+            y = types.integer,
+            z = types.inputObject({
+              name = 'alsoComplicated',
+              fields = {
+                x = types.string,
+                y = types.integer
+              }
+            })
+          }
+        })
       }
     }
   }
@@ -98,11 +117,15 @@ local query = types.object({
         }
       }
     },
+    cat = cat,
     pet = pet,
-    catOrDog = catOrDog
+    sentient = sentient,
+    catOrDog = catOrDog,
+    humanOrAlien = humanOrAlien
   }
 })
 
 return schema.create({
-  query = query
+  query = query,
+  directives = { types.skip, types.include }
 })

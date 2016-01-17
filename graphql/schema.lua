@@ -57,6 +57,11 @@ function schema.create(config)
 
   generateTypeMap(self.query)
 
+  self.directives = self.directives or {
+    types.include,
+    types.skip
+  }
+
   if self.directives then
     for _, directive in ipairs(self.directives) do
       self.directiveMap[directive.name] = directive

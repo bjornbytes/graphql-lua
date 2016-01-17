@@ -126,6 +126,5 @@ local query = types.object({
 })
 
 return schema.create({
-  query = query,
-  directives = { types.skip, types.include }
+  query = query
 })

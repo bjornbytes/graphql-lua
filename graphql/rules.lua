@@ -485,7 +485,7 @@ function rules.variableUsageAllowed(node, context)
 
               return false
             elseif subType.__type == 'NonNull' then
-              return typeIsSubTypeOf(subType.ofType, superType)
+              return isTypeSubTypeOf(subType.ofType, superType)
             end
 
             if superType.__type == 'List' then

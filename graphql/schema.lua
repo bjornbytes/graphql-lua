@@ -24,6 +24,8 @@ function schema.create(config)
   self.directiveMap = {}
 
   local function generateTypeMap(node)
+    if self.typeMap[node.name] and self.typeMap[node.name] == node then return end
+
     if node.__type == 'NonNull' or node.__type == 'List' then
       return generateTypeMap(node.ofType)
     end
@@ -43,6 +45,7 @@ function schema.create(config)
     end
 
     if node.__type == 'Object' or node.__type == 'Interface' or node.__type == 'InputObject' then
+      if type(node.fields) == 'function' then node.fields = node.fields() end
       for fieldName, field in pairs(node.fields) do
         if field.arguments then
           for _, argument in pairs(field.arguments) do

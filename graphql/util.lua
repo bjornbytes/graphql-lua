@@ -73,4 +73,14 @@ function util.coerceValue(node, schemaType, variables)
   end
 end
 
+function util.compose (f,g)
+    return function(...) return f(g(...)) end
+end
+
+function util.bind1(func, val1)
+  return function (val2)
+    return func(val1, val2)
+  end
+end
+
 return util

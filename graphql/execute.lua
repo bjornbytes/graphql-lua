@@ -170,9 +170,8 @@ local function completeValue(fieldType, result, subSelections, context)
     end
 
     local values = {}
-
-    for i, value in ipairs(values) do
-      values[i] = completeValue(innerType, value, context)
+    for i, value in ipairs(result) do
+      values[i] = completeValue(innerType, value, subSelections, context)
     end
 
     return values

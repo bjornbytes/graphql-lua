@@ -186,7 +186,13 @@ end
 
 function rules.requiredArgumentsPresent(node, context)
   local arguments = node.arguments or {}
-  local parentField = context.objects[#context.objects - 1].fields[node.name.value]
+  local parentField
+  if context.objects[#context.objects - 1].__type == 'List' then
+    parentField = context.objects[#context.objects - 2].fields[node.name.value]
+  else
+    parentField = context.objects[#context.objects - 1].fields[node.name.value]
+  end
+
   for name, argument in pairs(parentField.arguments) do
     if argument.__type == 'NonNull' then
       local present = util.find(arguments, function(argument)

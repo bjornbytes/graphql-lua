@@ -13,6 +13,16 @@ function util.find(t, fn)
   end
 end
 
+function util.compose(f, g)
+  return function(...) return f(g(...)) end
+end
+
+function util.bind1(func, x)
+  return function(y)
+    return func(x, y)
+  end
+end
+
 function util.coerceValue(node, schemaType, variables)
   variables = variables or {}
 
@@ -70,16 +80,6 @@ function util.coerceValue(node, schemaType, variables)
     end
 
     return schemaType.parseLiteral(node)
-  end
-end
-
-function util.compose (f,g)
-    return function(...) return f(g(...)) end
-end
-
-function util.bind1(func, val1)
-  return function (val2)
-    return func(val1, val2)
   end
 end
 

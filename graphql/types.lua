@@ -51,11 +51,18 @@ function types.object(config)
     assert(type(config.isTypeOf) == 'function', 'must provide isTypeOf as a function')
   end
 
+  local fields
+  if type(config.fields) == 'function' then
+    fields = util.compose(util.bind1(initFields, 'Object'), config.fields)
+  else
+    fields = initFields('Object', config.fields)
+  end
+
   local instance = {
     __type = 'Object',
     name = config.name,
     isTypeOf = config.isTypeOf,
-    fields = type(config.fields) == 'function' and util.compose(util.bind1(initFields, 'Object'), config.fields) or initFields('Object', config.fields),
+    fields = fields,
     interfaces = config.interfaces
   }
 
@@ -71,11 +78,18 @@ function types.interface(config)
     assert(type(config.resolveType) == 'function', 'must provide resolveType as a function')
   end
 
+  local fields
+  if type(config.fields) == 'function' then
+    fields = util.compose(util.bind1(initFields, 'Interface'), config.fields)
+  else
+    fields = initFields('Interface', config.fields)
+  end
+
   local instance = {
     __type = 'Interface',
     name = config.name,
     description = config.description,
-    fields = type(config.fields) == 'function' and util.compose(util.bind1(initFields, 'Interface'), config.fields) or initFields('Interface', config.fields),
+    fields = fields,
     resolveType = config.resolveType
   }
 
@@ -84,19 +98,22 @@ function types.interface(config)
   return instance
 end
 
-function initFields(kind, flds)
-  assert(type(flds) == 'table', 'fields table must be provided')
-  local fields = {}
-  for fieldName, field in pairs(flds) do
+function initFields(kind, fields)
+  assert(type(fields) == 'table', 'fields table must be provided')
+
+  local result = {}
+
+  for fieldName, field in pairs(fields) do
     field = field.__type and { kind = field } or field
-    fields[fieldName] = {
+    result[fieldName] = {
       name = fieldName,
       kind = field.kind,
       arguments = field.arguments or {},
       resolve = kind == 'Object' and field.resolve or nil
     }
   end
-  return fields
+
+  return result
 end
 
 function types.enum(config)

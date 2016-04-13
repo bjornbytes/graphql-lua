@@ -1,6 +1,8 @@
 GraphQL Lua
 ===
 
+[![Join the chat at https://gitter.im/bjornbytes/graphql-lua](https://badges.gitter.im/bjornbytes/graphql-lua.svg)](https://gitter.im/bjornbytes/graphql-lua?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Lua implementation of GraphQL.
 
 Example

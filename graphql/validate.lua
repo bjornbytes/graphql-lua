@@ -58,7 +58,12 @@ local visitors = {
 
   field = {
     enter = function(node, context)
-      local parentField = context.objects[#context.objects].fields[node.name.value]
+      local parentField
+      if context.objects[#context.objects].__type == 'List' then
+        parentField = context.objects[#context.objects - 1].fields[node.name.value]
+      else
+        parentField = context.objects[#context.objects].fields[node.name.value]
+      end
 
       -- false is a special value indicating that the field was not present in the type definition.
       local field = parentField and parentField.kind or false

@@ -1,3 +1,6 @@
+local path = (...):gsub('%.[^%.]+$', '')
+local util = require(path .. '.util')
+
 local types = {}
 
 function types.nonNull(kind)
@@ -47,24 +50,12 @@ function types.object(config)
   if config.isTypeOf then
     assert(type(config.isTypeOf) == 'function', 'must provide isTypeOf as a function')
   end
-  assert(type(config.fields) == 'table', 'fields table must be provided')
-
-  local fields = {}
-  for fieldName, field in pairs(config.fields) do
-    field = field.__type and { kind = field } or field
-    fields[fieldName] = {
-      name = fieldName,
-      kind = field.kind,
-      arguments = field.arguments or {},
-      resolve = field.resolve
-    }
-  end
 
   local instance = {
     __type = 'Object',
     name = config.name,
     isTypeOf = config.isTypeOf,
-    fields = fields,
+    fields = type(config.fields) == 'function' and util.compose(util.bind1(initFields, 'Object'), config.fields) or initFields('Object', config.fields),
     interfaces = config.interfaces
   }
 
@@ -80,27 +71,32 @@ function types.interface(config)
     assert(type(config.resolveType) == 'function', 'must provide resolveType as a function')
   end
 
-  local fields = {}
-  for fieldName, field in pairs(config.fields) do
-    field = field.__type and { kind = field } or field
-    fields[fieldName] = {
-      name = fieldName,
-      kind = field.kind,
-      arguments = field.arguments or {}
-    }
-  end
-
   local instance = {
     __type = 'Interface',
     name = config.name,
     description = config.description,
-    fields = fields,
+    fields = type(config.fields) == 'function' and util.compose(util.bind1(initFields, 'Interface'), config.fields) or initFields('Interface', config.fields),
     resolveType = config.resolveType
   }
 
   instance.nonNull = types.nonNull(instance)
 
   return instance
+end
+
+function initFields(kind, flds)
+  assert(type(flds) == 'table', 'fields table must be provided')
+  local fields = {}
+  for fieldName, field in pairs(flds) do
+    field = field.__type and { kind = field } or field
+    fields[fieldName] = {
+      name = fieldName,
+      kind = field.kind,
+      arguments = field.arguments or {},
+      resolve = kind == 'Object' and field.resolve or nil
+    }
+  end
+  return fields
 end
 
 function types.enum(config)

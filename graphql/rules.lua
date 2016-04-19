@@ -276,9 +276,6 @@ end
 function rules.fragmentSpreadIsPossible(node, context)
   local fragment = node.kind == 'inlineFragment' and node or context.fragmentMap[node.name.value]
   local parentType = context.objects[#context.objects - 1]
-  if(parent.__type == 'List') then
-      parent = parent.ofType
-  end
 
   local fragmentType
   if node.kind == 'inlineFragment' then

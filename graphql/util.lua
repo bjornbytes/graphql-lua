@@ -67,7 +67,7 @@ function util.coerceValue(node, schemaType, variables)
         error('Unknown input object field "' .. field.name .. '"')
       end
 
-      return util.coerceValue(schemaType.fields[field.name].kind, field.value, variables)
+      return util.coerceValue(field.value, schemaType.fields[field.name].kind, variables)
     end)
   end
 

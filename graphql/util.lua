@@ -47,6 +47,20 @@ function util.coerceValue(node, schemaType, variables)
     return variables[node.name.value]
   end
 
+  if schemaType.__type == 'Union' then
+    local matched, result
+    for k, v in ipairs(schemaType.types) do
+        matched, result = pcall(util.coerceValue, node, v, variables)
+        if matched then
+          return result
+        end
+    end
+
+    local valid_types = util.map(schemaType.types, function (t) return t.name end)
+    --TODO! how to better report this error?
+    error('Could not coerce "' .. tostring(node.kind) .. '" to one of union types ['..table.concat(valid_types, ",")..']')
+  end
+
   if schemaType.__type == 'List' then
     if node.kind ~= 'list' then
       error('Expected a list')

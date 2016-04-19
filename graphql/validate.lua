@@ -1,5 +1,6 @@
 local path = (...):gsub('%.[^%.]+$', '')
 local rules = require(path .. '.rules')
+local util = require(path .. '.util')
 
 local visitors = {
   document = {
@@ -58,16 +59,10 @@ local visitors = {
 
   field = {
     enter = function(node, context)
-      local parentField
-      if context.objects[#context.objects].__type == 'List' then
-        parentField = context.objects[#context.objects - 1].fields[node.name.value]
-      else
-        parentField = context.objects[#context.objects].fields[node.name.value]
-      end
+      local parentField = util.getParentField(context, node.name.value, 0)
 
       -- false is a special value indicating that the field was not present in the type definition.
       local field = parentField and parentField.kind or false
-
       table.insert(context.objects, field)
     end,
 

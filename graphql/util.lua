@@ -23,6 +23,15 @@ function util.bind1(func, x)
   end
 end
 
+function util.getParentField(context, name, step_back)
+  local obj = context.objects[#context.objects - step_back]
+    if obj.__type == 'List' then
+      return obj.ofType.fields[name]
+    else
+      return obj.fields[name]
+    end
+end
+
 function util.coerceValue(node, schemaType, variables)
   variables = variables or {}
 

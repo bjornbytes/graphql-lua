@@ -237,7 +237,7 @@ local function cDirective(name, arguments)
 end
 
 -- Simple types
-local rawName = R('az', 'AZ') * (P'_' + R'09' + R('az', 'AZ')) ^ 0
+local rawName = (P'_' + R('az', 'AZ')) * (P'_' + R'09' + R('az', 'AZ')) ^ 0
 local name = rawName / cName
 local fragmentName = (rawName - ('on' * -rawName)) / cName
 local alias = ws * name * P':' * ws / cAlias

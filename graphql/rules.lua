@@ -40,7 +40,7 @@ end
 
 function rules.argumentsDefinedOnType(node, context)
   if node.arguments then
-    local parentField = util.getParentField(context, node.name.value, 1)
+    local parentField = util.getParentField(context, node.name.value)
     for _, argument in pairs(node.arguments) do
       local name = argument.name.value
       if not parentField.arguments[name] then
@@ -178,7 +178,7 @@ end
 
 function rules.argumentsOfCorrectType(node, context)
   if node.arguments then
-    local parentField = util.getParentField(context, node.name.value, 1)
+    local parentField = util.getParentField(context, node.name.value)
     for _, argument in pairs(node.arguments) do
       local name = argument.name.value
       local argumentType = parentField.arguments[name]
@@ -189,7 +189,7 @@ end
 
 function rules.requiredArgumentsPresent(node, context)
   local arguments = node.arguments or {}
-  local parentField = util.getParentField(context, node.name.value, 1)
+  local parentField = util.getParentField(context, node.name.value)
   for name, argument in pairs(parentField.arguments) do
     if argument.__type == 'NonNull' then
       local present = util.find(arguments, function(argument)
@@ -448,7 +448,7 @@ function rules.variableUsageAllowed(node, context)
     if not arguments then return end
 
     for field in pairs(arguments) do
-      local parentField = util.getParentField(context, field, 1)
+      local parentField = util.getParentField(context, field)
       for i = 1, #arguments[field] do
         local argument = arguments[field][i]
         if argument.value.kind == 'variable' then

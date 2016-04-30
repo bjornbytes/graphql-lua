@@ -23,13 +23,14 @@ function util.bind1(func, x)
   end
 end
 
-function util.getParentField(context, name, step_back)
-  local obj = context.objects[#context.objects - step_back]
-    if obj.__type == 'List' then
-      return obj.ofType.fields[name]
-    else
-      return obj.fields[name]
-    end
+function util.getParentField(context, name, count)
+  count = count == nil and 1 or count
+  local obj = context.objects[#context.objects - count]
+  if obj.__type == 'List' then
+    return obj.ofType.fields[name]
+  else
+    return obj.fields[name]
+  end
 end
 
 function util.coerceValue(node, schemaType, variables)
@@ -45,20 +46,6 @@ function util.coerceValue(node, schemaType, variables)
 
   if node.kind == 'variable' then
     return variables[node.name.value]
-  end
-
-  if schemaType.__type == 'Union' then
-    local matched, result
-    for k, v in ipairs(schemaType.types) do
-        matched, result = pcall(util.coerceValue, node, v, variables)
-        if matched then
-          return result
-        end
-    end
-
-    local valid_types = util.map(schemaType.types, function (t) return t.name end)
-    --TODO! how to better report this error?
-    error('Could not coerce "' .. tostring(node.kind) .. '" to one of union types ['..table.concat(valid_types, ",")..']')
   end
 
   if schemaType.__type == 'List' then

@@ -23,6 +23,16 @@ function util.bind1(func, x)
   end
 end
 
+function util.getParentField(context, name, count)
+  count = count == nil and 1 or count
+  local obj = context.objects[#context.objects - count]
+  if obj.__type == 'List' then
+    return obj.ofType.fields[name]
+  else
+    return obj.fields[name]
+  end
+end
+
 function util.coerceValue(node, schemaType, variables)
   variables = variables or {}
 
@@ -58,7 +68,7 @@ function util.coerceValue(node, schemaType, variables)
         error('Unknown input object field "' .. field.name .. '"')
       end
 
-      return util.coerceValue(schemaType.fields[field.name].kind, field.value, variables)
+      return util.coerceValue(field.value, schemaType.fields[field.name].kind, variables)
     end)
   end
 

@@ -1,6 +1,8 @@
 local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
+local introspection = require(path .. '.introspection')
+local cjson = require 'cjson' -- needs to be cloned from here https://github.com/openresty/lua-cjson for cjson.empty_array feature
 
 local function typeFromAST(node, schema)
   local innerType
@@ -149,7 +151,7 @@ local function completeValue(fieldType, result, subSelections, context)
 
   if fieldTypeName == 'NonNull' then
     local innerType = fieldType.ofType
-    local completedResult = completeValue(innerType, result, context)
+    local completedResult = completeValue(innerType, result, subSelections, context)
 
     if completedResult == nil then
       error('No value provided for non-null ' .. innerType.name)
@@ -163,6 +165,8 @@ local function completeValue(fieldType, result, subSelections, context)
   end
 
   if fieldTypeName == 'List' then
+    if result == cjson.empty_array then return result end
+    
     local innerType = fieldType.ofType
 
     if type(result) ~= 'table' then
@@ -177,8 +181,11 @@ local function completeValue(fieldType, result, subSelections, context)
     return values
   end
 
-  if fieldTypeName == 'Scalar' or fieldTypeName == 'Enum' then
+  if fieldTypeName == 'Scalar' then
     return fieldType.serialize(result)
+  end
+  if fieldTypeName == 'Enum' then
+    return fieldType:serialize(result)
   end
 
   if fieldTypeName == 'Object' then
@@ -195,7 +202,16 @@ local function getFieldEntry(objectType, object, fields, context)
   local firstField = fields[1]
   local fieldName = firstField.name.value
   local responseKey = getFieldResponseKey(firstField)
-  local fieldType = objectType.fields[fieldName]
+  local fieldType
+  if fieldName == '__schema' then
+    fieldType = introspection.SchemaMetaFieldDef
+  elseif fieldName == '__type' then
+    fieldType = introspection.TypeMetaFieldDef
+  elseif fieldName == '__typename' then
+    fieldType = introspection.TypeNameMetaFieldDef
+  else
+    fieldType = objectType.fields[fieldName]
+  end
 
   if fieldType == nil then
     return nil
@@ -206,9 +222,9 @@ local function getFieldEntry(objectType, object, fields, context)
     argumentMap[argument.name.value] = argument
   end
 
-  local arguments = util.map(fieldType.arguments, function(argument, name)
+  local arguments = util.map(fieldType.arguments or {}, function(argument, name)
     local supplied = argumentMap[name] and argumentMap[name].value
-    return supplied and util.coerceValue(supplied, argument, context.variables) or argument.defaultValue
+    return supplied and util.coerceValue(argumentMap[name].value, argument.kind, context.variables) or argument.defaultValue
   end)
 
   local info = {
@@ -234,7 +250,8 @@ evaluateSelections = function(objectType, object, selections, context)
   local groupedFieldSet = collectFields(objectType, selections, {}, {}, context)
 
   return util.map(groupedFieldSet, function(fields)
-    return getFieldEntry(objectType, object, fields, context)
+    local v = getFieldEntry(objectType, object, fields, context)
+    if v ~= nil then return v else return cjson.null end
   end)
 end
 

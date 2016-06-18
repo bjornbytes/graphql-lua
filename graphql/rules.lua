@@ -2,6 +2,7 @@ local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
 
+local getParentField = require(path .. '.schema').getParentField
 local rules = {}
 
 function rules.uniqueOperationNames(node, context)
@@ -31,16 +32,14 @@ end
 function rules.fieldsDefinedOnType(node, context)
   if context.objects[#context.objects] == false then
     local parent = context.objects[#context.objects - 1]
-    if(parent.__type == 'List') then
-      parent = parent.ofType
-    end
+    if parent.ofType then parent = parent.ofType end
     error('Field "' .. node.name.value .. '" is not defined on type "' .. parent.name .. '"')
   end
 end
 
 function rules.argumentsDefinedOnType(node, context)
   if node.arguments then
-    local parentField = util.getParentField(context, node.name.value)
+    local parentField = getParentField(context, node.name.value)
     for _, argument in pairs(node.arguments) do
       local name = argument.name.value
       if not parentField.arguments[name] then
@@ -178,18 +177,19 @@ end
 
 function rules.argumentsOfCorrectType(node, context)
   if node.arguments then
-    local parentField = util.getParentField(context, node.name.value)
+    local parentField = getParentField(context, node.name.value)
     for _, argument in pairs(node.arguments) do
+
       local name = argument.name.value
       local argumentType = parentField.arguments[name]
-      util.coerceValue(argument.value, argumentType)
+      util.coerceValue(argument.value, argumentType.kind or argumentType)
     end
   end
 end
 
 function rules.requiredArgumentsPresent(node, context)
   local arguments = node.arguments or {}
-  local parentField = util.getParentField(context, node.name.value)
+  local parentField = getParentField(context, node.name.value)
   for name, argument in pairs(parentField.arguments) do
     if argument.__type == 'NonNull' then
       local present = util.find(arguments, function(argument)
@@ -276,6 +276,9 @@ end
 function rules.fragmentSpreadIsPossible(node, context)
   local fragment = node.kind == 'inlineFragment' and node or context.fragmentMap[node.name.value]
   local parentType = context.objects[#context.objects - 1]
+  if parentType.ofType then parentType = parentType.ofType end
+  if parentType.ofType then parentType = parentType.ofType end
+  if parentType.ofType then parentType = parentType.ofType end
 
   local fragmentType
   if node.kind == 'inlineFragment' then
@@ -298,6 +301,8 @@ function rules.fragmentSpreadIsPossible(node, context)
         types[kind.types[i]] = kind.types[i]
       end
       return types
+    else 
+      return {}
     end
   end
 
@@ -448,7 +453,7 @@ function rules.variableUsageAllowed(node, context)
     if not arguments then return end
 
     for field in pairs(arguments) do
-      local parentField = util.getParentField(context, field)
+      local parentField = getParentField(context, field)
       for i = 1, #arguments[field] do
         local argument = arguments[field][i]
         if argument.value.kind == 'variable' then

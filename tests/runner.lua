@@ -5,6 +5,7 @@ for _, fn in pairs({'describe', 'it', 'test', 'expect', 'spy', 'before', 'after'
 end
 
 local files = {
+  -- 'introspection', use busted
   'parse',
   'rules'
 }

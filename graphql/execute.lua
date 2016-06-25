@@ -166,7 +166,7 @@ local function completeValue(fieldType, result, subSelections, context)
 
   if fieldTypeName == 'List' then
     if result == cjson.empty_array then return result end
-    
+
     local innerType = fieldType.ofType
 
     if type(result) ~= 'table' then
@@ -203,6 +203,7 @@ local function getFieldEntry(objectType, object, fields, context)
   local fieldName = firstField.name.value
   local responseKey = getFieldResponseKey(firstField)
   local fieldType
+
   if fieldName == '__schema' then
     fieldType = introspection.SchemaMetaFieldDef
   elseif fieldName == '__type' then
@@ -224,7 +225,7 @@ local function getFieldEntry(objectType, object, fields, context)
 
   local arguments = util.map(fieldType.arguments or {}, function(argument, name)
     local supplied = argumentMap[name] and argumentMap[name].value
-    return supplied and util.coerceValue(argumentMap[name].value, argument.kind, context.variables) or argument.defaultValue
+    return supplied and util.coerceValue(supplied, argument, context.variables) or argument.defaultValue
   end)
 
   local info = {
@@ -240,10 +241,9 @@ local function getFieldEntry(objectType, object, fields, context)
   }
 
   local resolvedObject = (fieldType.resolve or defaultResolver)(object, arguments, info)
-
   local subSelections = mergeSelectionSets(fields)
-  local responseValue = completeValue(fieldType.kind, resolvedObject, subSelections, context)
-  return responseValue
+
+  return completeValue(fieldType.kind, resolvedObject, subSelections, context)
 end
 
 evaluateSelections = function(objectType, object, selections, context)

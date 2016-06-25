@@ -587,6 +587,4 @@ return {
   SchemaMetaFieldDef = SchemaMetaFieldDef,
   TypeMetaFieldDef = TypeMetaFieldDef,
   TypeNameMetaFieldDef = TypeNameMetaFieldDef
-
 }
-

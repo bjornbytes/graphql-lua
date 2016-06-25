@@ -2,12 +2,15 @@ local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
 local cjson = require 'cjson' -- needs to be cloned from here https://github.com/openresty/lua-cjson for cjson.empty_array feature
+
 local function isNullish(value)
   return value == nil
 end
+
 local function instanceof(t, s)
   return t.__type == s
 end
+
 local function resolveDirective(directive)
   local res = {}
   if directive.onQuery then table.insert(res, 'QUERY') end
@@ -18,153 +21,168 @@ local function resolveDirective(directive)
   if directive.onInlineFragment then table.insert(res, 'INLINE_FRAGMENT') end
   return res
 end
+
 local function mapToList(m)
   local r = {}
+
   for k,v in pairs(m) do
     table.insert(r, v)
   end
+
   return r
 end
-local __Schema, __Directive, __DirectiveLocation, __Type, __Field, __InputValue,__EnumValue, TypeKind, __TypeKind, SchemaMetaFieldDef, TypeMetaFieldDef, TypeNameMetaFieldDef, astFromValue, printAst, printers
-local DirectiveLocation = {
-  QUERY =  'QUERY', MUTATION =  'MUTATION', FIELD =  'FIELD', FRAGMENT_DEFINITION =  'FRAGMENT_DEFINITION', FRAGMENT_SPREAD =  'FRAGMENT_SPREAD', INLINE_FRAGMENT =  'INLINE_FRAGMENT'
-}
 
-__Schema = types.object({
+local __Directive, __DirectiveLocation, __Type, __Field, __InputValue,__EnumValue, TypeKind, __TypeKind, SchemaMetaFieldDef, TypeMetaFieldDef, TypeNameMetaFieldDef, astFromValue, printAst, printers
+
+local __Schema = types.object({
   name = '__Schema',
-  description =
-    'A GraphQL Schema defines the capabilities of a GraphQL server. It ' ..
-    'exposes all available types and directives on the server, as well as ' ..
-    'the entry points for query and mutation operations.',
-  fields = function() return {
-    types = {
-      description = 'A list of all types supported by this server.',
-      kind = types.nonNull(types.list(types.nonNull(__Type))),
-      resolve = function(schema)
-        local typeMap = schema:getTypeMap(); local res = {}
-        for k,v in pairs(typeMap) do table.insert(res, typeMap[k]) end; return res
-      end
-    },
-    queryType = {
-      description = 'The type that query operations will be rooted at.',
-      kind = types.nonNull(__Type),
-      resolve = function(schema) return schema:getQueryType() end
-    },
-    mutationType = {
-      description = 'If this server supports mutation, the type that ' ..
-                   'mutation operations will be rooted at.',
-      kind = __Type,
-      resolve = function(schema) return schema:getMutationType() end
-    },
-    directives = {
-      description = 'A list of all directives supported by this server.',
-      kind = types.nonNull(types.list(types.nonNull(__Directive))),
-      resolve = function(schema) return schema.directives end
+
+  description = [[
+    A GraphQL Schema defines the capabilities of a GraphQL server. It
+    exposes all available types and directives on the server, as well as
+    the entry points for query and mutation operations.
+  ]],
+
+  fields = function()
+    return {
+      types = {
+        description = 'A list of all types supported by this server.',
+        kind = types.nonNull(types.list(types.nonNull(__Type))),
+        resolve = function(schema)
+          local typeMap = schema:getTypeMap()
+          local res = {}
+
+          for k, v in pairs(typeMap) do
+            table.insert(res, typeMap[k])
+          end
+
+          return res
+        end
+      },
+
+      queryType = {
+        description = 'The type that query operations will be rooted at.',
+        kind = types.nonNull(__Type),
+        resolve = function(schema)
+          return schema:getQueryType()
+        end
+      },
+
+      mutationType = {
+        description = 'If this server supports mutation, the type that mutation operations will be rooted at.',
+        kind = __Type,
+        resolve = function(schema)
+          return schema:getMutationType()
+        end
+      },
+
+      directives = {
+        description = 'A list of all directives supported by this server.',
+        kind = types.nonNull(types.list(types.nonNull(__Directive))),
+        resolve = function(schema)
+          return schema.directives
+        end
+      }
     }
-  } end
-});
+  end
+})
 
 __Directive = types.object({
   name = '__Directive',
-  description =
-    'A Directive provides a way to describe alternate runtime execution and ' ..
-    'type validation behavior in a GraphQL document.' ..
-    '\n\nIn some cases, you need to provide options to alter GraphQL’s ' ..
-    'execution behavior in ways field arguments will not suffice, such as ' ..
-    'conditionally including or skipping a field. Directives provide this by ' ..
-    'describing additional information to the executor.',
-  fields = function() return {
-    name = types.nonNull(types.string),
-    description = types.string,
-    locations = {
-      kind = types.nonNull(types.list(types.nonNull(
-        __DirectiveLocation
-      ))), resolve = resolveDirective
-    },
-    args = {
-      kind = 
-        types.nonNull(types.list(types.nonNull(__InputValue))),
-      --resolve = function(directive) return directive.arguments or {} end
-      resolve = function(field)
-        local args = {}
-        local transform = function(a, n)
-          if a.__type then
-            return {kind = a, name = n}
-          else
-            if not a.name then
-              local r = {name = n}
+  description = [[
+    A Directive provides a way to describe alternate runtime execution and
+    type validation behavior in a GraphQL document.
+    \n\nIn some cases, you need to provide options to alter GraphQL’s
+    execution behavior in ways field arguments will not suffice, such as
+    conditionally including or skipping a field. Directives provide this by
+    describing additional information to the executor.
+  ]],
+
+  fields = function()
+    return {
+      name = types.nonNull(types.string),
+
+      description = types.string,
+
+      locations = {
+        kind = types.nonNull(types.list(types.nonNull(
+          __DirectiveLocation
+        )))
+      },
+
+      args = {
+        kind = types.nonNull(types.list(types.nonNull(__InputValue))),
+        resolve = function(field)
+          local args = {}
+          local transform = function(a, n)
+            if a.__type then
+              return { kind = a, name = n }
+            else
+              if a.name then return a end
+
+              local r = { name = n }
               for k,v in pairs(a) do
                 r[k] = v
               end
+
               return r
-            else
-              return a
             end
           end
+
+          for k, v in pairs(field.arguments or {}) do
+            table.insert(args, transform(v, k))
+          end
+
+          if #args > 0 then
+            return args
+          else
+            return cjson.empty_array
+          end
         end
-        for k, v in pairs(field.arguments or {}) do table.insert(args, transform(v, k)) end
-        -- p(args)
-        -- return args
-        if #args > 0 then return args else return cjson.empty_array end
-      end
-    },
-    -- NOTE = the following three fields are deprecated and are no longer part
-    -- of the GraphQL specification.
-    onOperation = {
-      deprecationReason = 'Use `locations`.',
-      kind = types.nonNull(types.boolean),
-      resolve = function(d) return
-        d.locations:find(DirectiveLocation.QUERY) ~= nil or
-        d.locations:find(DirectiveLocation.MUTATION) ~= nil end
-    },
-    onFragment = {
-      deprecationReason = 'Use `locations`.',
-      kind = types.nonNull(types.boolean),
-      resolve = function(d) return
-        d.locations:find(DirectiveLocation.FRAGMENT_SPREAD) ~= nil or
-        d.locations:find(DirectiveLocation.INLINE_FRAGMENT) ~= nil or
-        d.locations:find(DirectiveLocation.FRAGMENT_DEFINITION) ~= nil end
-    },
-    onField = {
-      deprecationReason = 'Use `locations`.',
-      kind = types.nonNull(types.boolean),
-      resolve = function(d) return d.locations:find(DirectiveLocation.FIELD) ~= nil end
+      }
     }
-  } end
-});
+  end
+})
 
 __DirectiveLocation = types.enum({
   name = '__DirectiveLocation',
-  description =
-    'A Directive can be adjacent to many parts of the GraphQL language, a ' ..
-    '__DirectiveLocation describes one such possible adjacencies.',
+  description = [[
+    A Directive can be adjacent to many parts of the GraphQL language, a
+    __DirectiveLocation describes one such possible adjacencies.
+  ]],
+
   values = {
     QUERY = {
-      value = DirectiveLocation.QUERY,
+      value = 'QUERY',
       description = 'Location adjacent to a query operation.'
     },
+
     MUTATION = {
-      value = DirectiveLocation.MUTATION,
+      value = 'MUTATION',
       description = 'Location adjacent to a mutation operation.'
     },
+
     FIELD = {
-      value = DirectiveLocation.FIELD,
+      value = 'FIELD',
       description = 'Location adjacent to a field.'
     },
+
     FRAGMENT_DEFINITION = {
-      value = DirectiveLocation.FRAGMENT_DEFINITION,
+      value = 'FRAGMENT_DEFINITION',
       description = 'Location adjacent to a fragment definition.'
     },
+
     FRAGMENT_SPREAD = {
-      value = DirectiveLocation.FRAGMENT_SPREAD,
+      value = 'FRAGMENT_SPREAD',
       description = 'Location adjacent to a fragment spread.'
     },
+
     INLINE_FRAGMENT = {
-      value = DirectiveLocation.INLINE_FRAGMENT,
+      value = 'INLINE_FRAGMENT',
       description = 'Location adjacent to an inline fragment.'
-    },
+    }
   }
-});
+})
 
 __Type = types.object({
   name = '__Type',
@@ -212,7 +230,7 @@ __Type = types.object({
       resolve = function(t, args)
         if instanceof(t, 'Object') or
             instanceof(t, 'Interface') then
-          
+
           local fieldMap = t.fields;
           local fields = {}; for k,v in pairs(fieldMap) do table.insert(fields, fieldMap[k]) end
           if not args.includeDeprecated then

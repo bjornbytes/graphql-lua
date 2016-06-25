@@ -5,13 +5,11 @@ local util = require 'graphql.util'
 local cjson = require 'cjson'
 local schema = require 'tests/data/todo'
 
-
 local introspection_query = [[
   query IntrospectionQuery {
     __schema {
       queryType { name }
       mutationType { name }
-      subscriptionType { name }
       types {
         ...FullType
       }
@@ -158,7 +156,6 @@ local introspection_expected_json = [[
       "queryType": {
         "name": "Query"
       },
-      "subscriptionType": null,
       "types": [
         {
           "description": null,
@@ -478,7 +475,7 @@ local introspection_expected_json = [[
           "possibleTypes": null
         },
         {
-          "description": "A GraphQL Schema defines the capabilities of a GraphQL server. It exposes all available types and directives on the server, as well as the entry points for query, mutation, and subscription operations.",
+          "description": "A GraphQL Schema defines the capabilities of a GraphQL server. It exposes all available types and directives on the server, as well as the entry points for query and mutation operations.",
           "enumValues": null,
           "fields": [
             {
@@ -532,18 +529,7 @@ local introspection_expected_json = [[
                 "name": "__Type",
                 "ofType": null
               }
-            },
-            {
-              "args": [],
-              "deprecationReason": null,
-              "description": "If this server support subscription, the type that subscription operations will be rooted at.",
-              "isDeprecated": false,
-              "name": "subscriptionType",
-              "type": {
-                "kind": "OBJECT",
-                "name": "__Type",
-                "ofType": null
-              }
+            }
             },
             {
               "args": [],
@@ -1223,12 +1209,6 @@ local introspection_expected_json = [[
             },
             {
               "deprecationReason": null,
-              "description": "Location adjacent to a subscription operation.",
-              "isDeprecated": false,
-              "name": "SUBSCRIPTION"
-            },
-            {
-              "deprecationReason": null,
               "description": "Location adjacent to a field.",
               "isDeprecated": false,
               "name": "FIELD"
@@ -1284,30 +1264,25 @@ describe('introspection', function()
     if v.fields ~= cjson.null then table.sort(v.fields, compare_by_name) end
     if v.enumValues ~= cjson.null then table.sort(v.enumValues, compare_by_name) end
   end
-  
+
   it('basic json equality test', function()
       assert.are.same(cjson.decode('{"a":1,    "b":2}'),{b = 2, a = 1})
   end)
-  
+
   it('root nodes are set', function()
       assert.is.truthy(response.__schema)
       assert.is.truthy(response.__schema.directives)
       assert.is.truthy(response.__schema.mutationType)
       assert.is.truthy(response.__schema.queryType)
-      assert.is.truthy(response.__schema.subscriptionType)
       assert.is.truthy(response.__schema.types)
   end)
 
   it('mutationType match', function()
     assert.are.same(expected.__schema.mutationType, response.__schema.mutationType)
   end)
-  
+
   it('queryType match', function()
     assert.are.same(expected.__schema.queryType, response.__schema.queryType)
-  end)
-
-  it('subscriptionType match', function()
-    assert.are.same(expected.__schema.subscriptionType, response.__schema.subscriptionType)
   end)
 
   it('root types are same', function()

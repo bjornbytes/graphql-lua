@@ -10,9 +10,6 @@ function schema.create(config)
   if config.mutation then
     assert(type(config.mutation) == 'table', 'mutation must be a table')
   end
-  if config.subscription then
-    assert(type(config.subscription) == 'table', 'subscription must be a table')
-  end
   
   local self = {}
   for k, v in pairs(config) do
@@ -66,7 +63,6 @@ function schema.create(config)
 
   generateTypeMap(self.query)
   generateTypeMap(self.mutation)
-  generateTypeMap(self.subscription)
   generateTypeMap(introspection.__Schema)
 
   self.directives = self.directives or {
@@ -105,10 +101,6 @@ end
 
 function schema:getMutationType()
   return self.mutation
-end
-
-function schema:getSubscriptionType()
-  return self.subscription
 end
 
 function schema:getTypeMap()

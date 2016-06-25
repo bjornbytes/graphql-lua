@@ -12,7 +12,6 @@ local function resolveDirective(directive)
   local res = {}
   if directive.onQuery then table.insert(res, 'QUERY') end
   if directive.onMutation then table.insert(res, 'MUTATION') end
-  if directive.onSubscription then table.insert(res, 'SUBSCRIPTION') end
   if directive.onField then table.insert(res, 'FIELD') end
   if directive.onFragmentDefinition then table.insert(res, 'FRAGMENT_DEFINITION') end
   if directive.onFragmentSpread then table.insert(res, 'FRAGMENT_SPREAD') end
@@ -28,7 +27,7 @@ local function mapToList(m)
 end
 local __Schema, __Directive, __DirectiveLocation, __Type, __Field, __InputValue,__EnumValue, TypeKind, __TypeKind, SchemaMetaFieldDef, TypeMetaFieldDef, TypeNameMetaFieldDef, astFromValue, printAst, printers
 local DirectiveLocation = {
-  QUERY =  'QUERY', MUTATION =  'MUTATION', SUBSCRIPTION =  'SUBSCRIPTION', FIELD =  'FIELD', FRAGMENT_DEFINITION =  'FRAGMENT_DEFINITION', FRAGMENT_SPREAD =  'FRAGMENT_SPREAD', INLINE_FRAGMENT =  'INLINE_FRAGMENT'
+  QUERY =  'QUERY', MUTATION =  'MUTATION', FIELD =  'FIELD', FRAGMENT_DEFINITION =  'FRAGMENT_DEFINITION', FRAGMENT_SPREAD =  'FRAGMENT_SPREAD', INLINE_FRAGMENT =  'INLINE_FRAGMENT'
 }
 
 __Schema = types.object({
@@ -36,7 +35,7 @@ __Schema = types.object({
   description =
     'A GraphQL Schema defines the capabilities of a GraphQL server. It ' ..
     'exposes all available types and directives on the server, as well as ' ..
-    'the entry points for query, mutation, and subscription operations.',
+    'the entry points for query and mutation operations.',
   fields = function() return {
     types = {
       description = 'A list of all types supported by this server.',
@@ -57,16 +56,9 @@ __Schema = types.object({
       kind = __Type,
       resolve = function(schema) return schema:getMutationType() end
     },
-    subscriptionType = {
-      description = 'If this server support subscription, the type that ' ..
-                   'subscription operations will be rooted at.',
-      kind = __Type,
-      resolve = function(schema) return schema:getSubscriptionType() end
-    },
     directives = {
       description = 'A list of all directives supported by this server.',
-      kind = 
-        types.nonNull(types.list(types.nonNull(__Directive))),
+      kind = types.nonNull(types.list(types.nonNull(__Directive))),
       resolve = function(schema) return schema.directives end
     }
   } end
@@ -123,8 +115,7 @@ __Directive = types.object({
       kind = types.nonNull(types.boolean),
       resolve = function(d) return
         d.locations:find(DirectiveLocation.QUERY) ~= nil or
-        d.locations:find(DirectiveLocation.MUTATION) ~= nil or
-        d.locations:find(DirectiveLocation.SUBSCRIPTION) ~= nil end
+        d.locations:find(DirectiveLocation.MUTATION) ~= nil end
     },
     onFragment = {
       deprecationReason = 'Use `locations`.',
@@ -155,10 +146,6 @@ __DirectiveLocation = types.enum({
     MUTATION = {
       value = DirectiveLocation.MUTATION,
       description = 'Location adjacent to a mutation operation.'
-    },
-    SUBSCRIPTION = {
-      value = DirectiveLocation.SUBSCRIPTION,
-      description = 'Location adjacent to a subscription operation.'
     },
     FIELD = {
       value = DirectiveLocation.FIELD,

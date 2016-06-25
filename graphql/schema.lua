@@ -7,17 +7,15 @@ schema.__index = schema
 
 function schema.create(config)
   assert(type(config.query) == 'table', 'must provide query object')
-  if config.mutation then
-    assert(type(config.mutation) == 'table', 'mutation must be a table')
-  end
-  
-  local self = {}
+  assert(not config.mutation or type(config.mutation) == 'table', 'mutation must be a table if provided')
+
+  local self = setmetatable({}, schema)
+
   for k, v in pairs(config) do
     self[k] = v
   end
 
-  self.typeMap = {
-  }
+  self.typeMap = {}
 
   self.interfaceMap = {}
   self.directiveMap = {}
@@ -76,7 +74,7 @@ function schema.create(config)
     end
   end
 
-  return setmetatable(self, schema)
+  return self
 end
 
 function schema:getType(name)
@@ -109,14 +107,15 @@ end
 
 function schema:getPossibleTypes(abstractType)
   if abstractType.__type == 'Union' then
-    return abstractType.types;
+    return abstractType.types
   end
-  return self:getImplementors(abstractType);
-end
 
+  return self:getImplementors(abstractType)
+end
 
 function schema.getParentField(context, name, count)
   local parent = nil
+
   if name == '__schema' then
     parent = introspection.SchemaMetaFieldDef
   elseif name == '__type' then
@@ -124,13 +123,13 @@ function schema.getParentField(context, name, count)
   elseif name == '__typename' then
     parent = introspection.TypeNameMetaFieldDef
   else
-    count = count == nil and 1 or count
+    count = count or 1
     local obj = context.objects[#context.objects - count]
     if obj.ofType then obj = obj.ofType end
     parent = obj.fields[name]
   end
+
   return parent
 end
-
 
 return schema

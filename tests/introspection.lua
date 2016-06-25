@@ -1250,8 +1250,8 @@ describe('introspection', function()
   local operationName = 'IntrospectionQuery'
   local response = execute(schema, parse(introspection_query), rootValue, variables, operationName)
   local expected = cjson.decode(introspection_expected_json)
-  assert:set_parameter("TableFormatLevel", 10) 
-  local compare_by_name = function(a,b) return a.name < b.name end  
+  assert:set_parameter("TableFormatLevel", 10)
+  local compare_by_name = function(a,b) return a.name < b.name end
   table.sort(response.__schema.directives, compare_by_name)
   table.sort(expected.__schema.directives, compare_by_name)
   table.sort(response.__schema.types, compare_by_name)

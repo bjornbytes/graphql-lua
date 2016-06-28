@@ -3,23 +3,22 @@ local types = require(path .. '.types')
 local util = require(path .. '.util')
 local cjson = require 'cjson' -- needs to be cloned from here https://github.com/openresty/lua-cjson for cjson.empty_array feature
 
-local function isNullish(value)
-  return value == nil
-end
-
 local function instanceof(t, s)
   return t.__type == s
 end
 
-local __Directive, __DirectiveLocation, __Type, __Field, __InputValue,__EnumValue, TypeKind, __TypeKind, SchemaMetaFieldDef, TypeMetaFieldDef, TypeNameMetaFieldDef, astFromValue, printAst, printers
+local function trim(s)
+  return s:gsub('^%s+', ''):gsub('%s$', ''):gsub('%s%s+', ' ')
+end
+
+local __Directive, __DirectiveLocation, __Type, __Field, __InputValue,__EnumValue, __TypeKind, SchemaMetaFieldDef, TypeMetaFieldDef, TypeNameMetaFieldDef, astFromValue, printAst, printers
 
 local __Schema = types.object({
   name = '__Schema',
 
-  description = [[
-    A GraphQL Schema defines the capabilities of a GraphQL server. It
-    exposes all available types and directives on the server, as well as
-    the entry points for query and mutation operations.
+  description = trim [[
+    A GraphQL Schema defines the capabilities of a GraphQL server. It exposes all available types
+    and directives on the server, as well as the entry points for query and mutation operations.
   ]],
 
   fields = function()
@@ -61,13 +60,14 @@ local __Schema = types.object({
 
 __Directive = types.object({
   name = '__Directive',
-  description = [[
-    A Directive provides a way to describe alternate runtime execution and
-    type validation behavior in a GraphQL document.
-    \n\nIn some cases, you need to provide options to alter GraphQL’s
-    execution behavior in ways field arguments will not suffice, such as
-    conditionally including or skipping a field. Directives provide this by
-    describing additional information to the executor.
+
+  description = trim [[
+    A Directive provides a way to describe alternate runtime execution and type validation behavior
+    in a GraphQL document.
+
+    In some cases, you need to provide options to alter GraphQL’s execution
+    behavior in ways field arguments will not suffice, such as conditionally including or skipping a
+    field. Directives provide this by describing additional information to the executor.
   ]],
 
   fields = function()
@@ -118,9 +118,10 @@ __Directive = types.object({
 
 __DirectiveLocation = types.enum({
   name = '__DirectiveLocation',
-  description = [[
-    A Directive can be adjacent to many parts of the GraphQL language, a
-    __DirectiveLocation describes one such possible adjacencies.
+
+  description = trim [[
+    A Directive can be adjacent to many parts of the GraphQL language, a __DirectiveLocation
+    describes one such possible adjacencies.
   ]],
 
   values = {
@@ -158,114 +159,130 @@ __DirectiveLocation = types.enum({
 
 __Type = types.object({
   name = '__Type',
-  description =
-    'The fundamental unit of any GraphQL Schema is the type. There are ' ..
-    'many kinds of types in GraphQL as represented by the `__TypeKind` enum.' ..
-    '\n\nDepending on the kind of a type, certain fields describe ' ..
-    'information about that type. Scalar types provide no information ' ..
-    'beyond a name and description, while Enum types provide their values. ' ..
-    'Object and Interface types provide the fields they describe. Abstract ' ..
-    'types, Union and Interface, provide the Object types possible ' ..
-    'at runtime. List and NonNull types compose other types.',
-  fields = function() return {
-    kind = {
-      kind = types.nonNull(__TypeKind),
-      resolve = function (type)
-        if instanceof(type, 'Scalar') then
-          return TypeKind.SCALAR;
-        elseif instanceof(type, 'Object') then
-          return TypeKind.OBJECT;
-        elseif instanceof(type, 'Interface') then
-          return TypeKind.INTERFACE;
-        elseif instanceof(type, 'Union') then
-          return TypeKind.UNION;
-        elseif instanceof(type, 'Enum') then
-          return TypeKind.ENUM;
-        elseif instanceof(type, 'InputObject') then
-          return TypeKind.INPUT_OBJECT;
-        elseif instanceof(type, 'List') then
-          return TypeKind.LIST;
-        elseif instanceof(type, 'NonNull') then
-          return TypeKind.NON_NULL;
+
+  description = trim [[
+    The fundamental unit of any GraphQL Schema is the type. There are
+    many kinds of types in GraphQL as represented by the `__TypeKind` enum.
+
+    Depending on the kind of a type, certain fields describe
+    information about that type. Scalar types provide no information
+    beyond a name and description, while Enum types provide their values.
+    Object and Interface types provide the fields they describe. Abstract
+    types, Union and Interface, provide the Object types possible
+    at runtime. List and NonNull types compose other types.
+  ]],
+
+  fields = function()
+    return {
+      kind = {
+        kind = __TypeKind.nonNull,
+        resolve = function (type)
+          if instanceof(type, 'Scalar') then
+            return 'SCALAR'
+          elseif instanceof(type, 'Object') then
+            return 'OBJECT'
+          elseif instanceof(type, 'Interface') then
+            return 'INTERFACE'
+          elseif instanceof(type, 'Union') then
+            return 'UNION'
+          elseif instanceof(type, 'Enum') then
+            return 'ENUM'
+          elseif instanceof(type, 'InputObject') then
+            return 'INPUT_OBJECT'
+          elseif instanceof(type, 'List') then
+            return 'LIST'
+          elseif instanceof(type, 'NonNull') then
+            return 'NON_NULL'
+          end
+
+          error('Unknown kind of kind = ' .. type)
         end
-        error('Unknown kind of kind = ' .. type);
-      end
-    },
-    name = types.string,
-    description = types.string,
-    fields = {
-      kind = types.list(types.nonNull(__Field)),
-      arguments = {
-        -- includeDeprecated = types.boolean 
-        includeDeprecated = { kind = types.boolean, defaultValue = false }
       },
-      resolve = function(t, args)
-        if instanceof(t, 'Object') or
-            instanceof(t, 'Interface') then
+      name = types.string,
+      description = types.string,
 
-          local fieldMap = t.fields;
-          local fields = {}; for k,v in pairs(fieldMap) do table.insert(fields, fieldMap[k]) end
-          if not args.includeDeprecated then
-            fields = util.filter(fields, function(field) return not field.deprecationReason end);
+      fields = {
+        kind = types.list(types.nonNull(__Field)),
+        arguments = {
+          includeDeprecated = { kind = types.boolean, defaultValue = false }
+        },
+        resolve = function(t, args)
+          if instanceof(t, 'Object') or instanceof(t, 'Interface') then
+            local fieldMap = t.fields
+            local fields = {}
+
+            for k,v in pairs(fieldMap) do
+              table.insert(fields, fieldMap[k])
+            end
+
+            if not args.includeDeprecated then
+              fields = util.filter(fields, function(field) return not field.deprecationReason end)
+            end
+            if #fields > 0 then
+              return fields
+            else
+              return cjson.empty_array
+            end
           end
-          if #fields > 0 then return fields else return cjson.empty_array end
+          return nil
         end
-        return nil;
-      end
-    },
-    interfaces = {
-      kind = types.list(types.nonNull(__Type)),
-      resolve = function(type)
-        if instanceof(type, 'Object') then
-          return type.interfaces and type.interfaces or cjson.empty_array;
-        end
-      end
-    },
-    possibleTypes = {
-      kind = types.list(types.nonNull(__Type)),
-      resolve = function(type, args, context, obj)
-        if instanceof(type, 'Interface') or
-            instanceof(type, 'Union') then
-          return context.schema:getPossibleTypes(type);
-        end
-      end
-    },
-    enumValues = {
-      kind = types.list(types.nonNull(__EnumValue)),
-      arguments = {
-        -- includeDeprecated = types.boolean
-        includeDeprecated = { kind = types.boolean, defaultValue = false }
       },
-      resolve = function(type, args)
-        if instanceof(type, 'Enum') then
-          local values = type.values;
-          if not args.includeDeprecated then
-            values = util.filter(values, function(value) return not value.deprecationReason end)
+
+      interfaces = {
+        kind = types.list(types.nonNull(__Type)),
+        resolve = function(type)
+          if instanceof(type, 'Object') then
+            return type.interfaces and type.interfaces or cjson.empty_array
           end
-          return util.values(values)
         end
-      end
-    },
-    inputFields = {
-      kind = types.list(types.nonNull(__InputValue)),
-      resolve = function(type)
-        if instanceof(type, 'InputObject') then
-          local fieldMap = type.fields;
-          local fields = {}
+      },
 
-          for k, v in pairs(fieldMap) do
-            table.insert(fields, fieldMap[k])
+      possibleTypes = {
+        kind = types.list(types.nonNull(__Type)),
+        resolve = function(type, args, context, obj)
+          if instanceof(type, 'Interface') or instanceof(type, 'Union') then
+            return context.schema:getPossibleTypes(type)
           end
-
-          return fields
         end
-      end
-    },
+      },
 
-    ofType = {
-      kind = __Type
+      enumValues = {
+        kind = types.list(types.nonNull(__EnumValue)),
+        arguments = {
+          includeDeprecated = { kind = types.boolean, defaultValue = false }
+        },
+        resolve = function(type, args)
+          if instanceof(type, 'Enum') then
+            local values = type.values
+            if not args.includeDeprecated then
+              values = util.filter(values, function(value) return not value.deprecationReason end)
+            end
+            return util.values(values)
+          end
+        end
+      },
+
+      inputFields = {
+        kind = types.list(types.nonNull(__InputValue)),
+        resolve = function(type)
+          if instanceof(type, 'InputObject') then
+            local fieldMap = type.fields
+            local fields = {}
+
+            for k, v in pairs(fieldMap) do
+              table.insert(fields, fieldMap[k])
+            end
+
+            return fields
+          end
+        end
+      },
+
+      ofType = {
+        kind = __Type
+      }
     }
-  } end
+  end
 })
 
 __Field = types.object({
@@ -273,141 +290,145 @@ __Field = types.object({
   description =
     'Object and Interface types are described by a list of Fields, each of ' ..
     'which has a name, potentially a list of arguments, and a return type.',
-  fields = function() return {
-    name = types.nonNull(types.string),
-    description = types.string,
-    args = {
-      -- kind = types.list(__InputValue),
-      kind = types.nonNull(types.list(types.nonNull(__InputValue))),
-      resolve = function(field)
-        local args = {}
-        local transform = function(a, n)
-          if a.__type then
-            return {kind = a, name = n}
-          else
-            if not a.name then
-              local r = {name = n}
-              for k,v in pairs(a) do
-                r[k] = v
-              end
-              return r
+  fields = function()
+    return {
+      name = types.nonNull(types.string),
+      description = types.string,
+      args = {
+        -- kind = types.list(__InputValue),
+        kind = types.nonNull(types.list(types.nonNull(__InputValue))),
+        resolve = function(field)
+          local args = {}
+          local transform = function(a, n)
+            if a.__type then
+              return {kind = a, name = n}
             else
-              return a
+              if not a.name then
+                local r = {name = n}
+                for k,v in pairs(a) do
+                  r[k] = v
+                end
+                return r
+              else
+                return a
+              end
             end
           end
+          for k, v in pairs(field.arguments or {}) do table.insert(args, transform(v, k)) end
+          -- return args
+          if #args > 0 then return args else return cjson.empty_array end
         end
-        for k, v in pairs(field.arguments or {}) do table.insert(args, transform(v, k)) end
-        -- return args
-        if #args > 0 then return args else return cjson.empty_array end
-      end
-    },
-    type = { kind = types.nonNull(__Type), resolve = function(field) return field.kind end },
-    isDeprecated = {
-      kind = types.nonNull(types.boolean),
-      resolve = function(field) return not isNullish(field.deprecationReason) end
-    },
-    deprecationReason = types.string
-
-  } end
-});
+      },
+      type = {
+        kind = types.nonNull(__Type),
+        resolve = function(field)
+          return field.kind
+        end
+      },
+      isDeprecated = {
+        kind = types.nonNull(types.boolean),
+        resolve = function(field)
+          return field.deprecationReason ~= nil
+        end
+      },
+      deprecationReason = types.string
+    }
+  end
+})
 
 __InputValue = types.object({
   name = '__InputValue',
-  description =
-    'Arguments provided to Fields or Directives and the input fields of an ' ..
-    'InputObject are represented as Input Values which describe their type ' ..
-    'and optionally a default value.',
-  fields = function() return {
-    name = types.nonNull(types.string),
-    description = types.string,
-    type = { kind = types.nonNull(__Type), resolve = function(field) return field.kind end },
-    defaultValue = {
-      kind = types.string,
-      description =
-        'A GraphQL-formatted string representing the default value for this ' ..
-        'input value.',
-      resolve = function(inputVal) if isNullish(inputVal.defaultValue)
-        then return nil
-        else return printAst(astFromValue(inputVal.defaultValue, inputVal)) end end
+
+  description = trim [[
+    Arguments provided to Fields or Directives and the input fields of an
+    InputObject are represented as Input Values which describe their type
+    and optionally a default value.
+  ]],
+
+  fields = function()
+    return {
+      name = types.nonNull(types.string),
+      description = types.string,
+      type = { kind = types.nonNull(__Type), resolve = function(field) return field.kind end },
+      defaultValue = {
+        kind = types.string,
+        description = 'A GraphQL-formatted string representing the default value for this ' ..
+          'input value.',
+        resolve = function(inputVal)
+          return inputVal.defaultValue and printAst(astFromValue(inputVal.defaultValue, inputVal)) or nil
+        end
+      }
     }
-  } end
-});
+  end
+})
 
 __EnumValue = types.object({
   name = '__EnumValue',
-  description =
-    'One possible value for a given Enum. Enum values are unique values, not ' ..
-    'a placeholder for a string or numeric value. However an Enum value is ' ..
-    'returned in a JSON response as a string.',
-  fields = function() return {
-    name = types.nonNull(types.string),
-    description = types.string,
-    isDeprecated = {
-      kind = types.nonNull(types.boolean),
-      resolve = function(enumValue) return not isNullish(enumValue.deprecationReason) end
-    },
-    deprecationReason = 
-      types.string
 
-  } end
-});
+  description = [[
+    One possible value for a given Enum. Enum values are unique values, not
+    a placeholder for a string or numeric value. However an Enum value is
+    returned in a JSON response as a string.
+  ]],
 
-TypeKind = {
-  SCALAR = 'SCALAR',
-  OBJECT = 'OBJECT',
-  INTERFACE = 'INTERFACE',
-  UNION = 'UNION',
-  ENUM = 'ENUM',
-  INPUT_OBJECT = 'INPUT_OBJECT',
-  LIST = 'LIST',
-  NON_NULL = 'NON_NULL'
-};
+  fields = function()
+    return {
+      name = types.string.nonNull,
+      description = types.string,
+      isDeprecated = {
+        kind = types.boolean.nonNull,
+        resolve = function(enumValue) return enumValue.deprecationReason ~= nil end
+      },
+      deprecationReason = types.string
+    }
+  end
+})
 
 __TypeKind = types.enum({
   name = '__TypeKind',
   description = 'An enum describing what kind of type a given `__Type` is.',
   values = {
     SCALAR = {
-      value = TypeKind.SCALAR,
+      value = 'SCALAR',
       description = 'Indicates this type is a scalar.'
     },
+
     OBJECT = {
-      value = TypeKind.OBJECT,
-      description = 'Indicates this type is an object. ' ..
-                   '`fields` and `interfaces` are valid fields.'
+      value = 'OBJECT',
+      description = 'Indicates this type is an object. `fields` and `interfaces` are valid fields.'
     },
+
     INTERFACE = {
-      value = TypeKind.INTERFACE,
-      description = 'Indicates this type is an interface. ' ..
-                   '`fields` and `possibleTypes` are valid fields.'
+      value = 'INTERFACE',
+      description = 'Indicates this type is an interface. `fields` and `possibleTypes` are valid fields.'
     },
+
     UNION = {
-      value = TypeKind.UNION,
-      description = 'Indicates this type is a union. ' ..
-                   '`possibleTypes` is a valid field.'
+      value = 'UNION',
+      description = 'Indicates this type is a union. `possibleTypes` is a valid field.'
     },
+
     ENUM = {
-      value = TypeKind.ENUM,
-      description = 'Indicates this type is an enum. ' ..
-                   '`enumValues` is a valid field.'
+      value = 'ENUM',
+      description = 'Indicates this type is an enum. `enumValues` is a valid field.'
     },
+
     INPUT_OBJECT = {
-      value = TypeKind.INPUT_OBJECT,
-      description = 'Indicates this type is an input object. ' ..
-                   '`inputFields` is a valid field.'
+      value = 'INPUT_OBJECT',
+      description = 'Indicates this type is an input object. `inputFields` is a valid field.'
     },
+
     LIST = {
-      value = TypeKind.LIST,
-      description = 'Indicates this type is a list. ' ..
-                   '`ofType` is a valid field.'
+      value = 'LIST',
+      description = 'Indicates this type is a list. `ofType` is a valid field.'
     },
+
     NON_NULL = {
-      value = TypeKind.NON_NULL,
-      description = 'Indicates this type is a non-null. ' ..
-                   '`ofType` is a valid field.'
+      value = 'NON_NULL',
+      description = 'Indicates this type is a non-null. `ofType` is a valid field.'
     }
   }
-});
+})
 
 --
 -- Note that these are GraphQLFieldDefinition and not GraphQLFieldConfig,
@@ -416,10 +437,10 @@ __TypeKind = types.enum({
 
 SchemaMetaFieldDef = {
   name = '__schema',
-  kind = types.nonNull(__Schema),
+  kind = __Schema.nonNull,
   description = 'Access the current type schema of this server.',
   arguments = {},
-  resolve = function(source, args, context, obj) return context.schema  end
+  resolve = function(source, args, context, obj) return context.schema end
 }
 
 TypeMetaFieldDef = {
@@ -427,20 +448,19 @@ TypeMetaFieldDef = {
   kind = __Type,
   description = 'Request the type information of a single type.',
   arguments = {
-    name = types.nonNull(types.string)
+    name = types.string.nonNull
   }
   --,resolve = function(source, { name } = { name = string }, context, { schema })
   --  return schema.getType(name) end
-};
+}
 
 TypeNameMetaFieldDef = {
   name = '__typename',
-  kind = types.nonNull(types.string),
+  kind = types.string.nonNull,
   description = 'The name of the current Object type at runtime.',
   arguments = {},
   resolve = function(source, args, context, obj) return obj.parentType.name end
-};
-
+}
 
 -- Produces a GraphQL Value AST given a lua value.
 
@@ -484,6 +504,7 @@ printAst = function(v)
 end
 
 astFromValue = function(value, tt)
+
   -- Ensure flow knows that we treat function params as const.
   local _value = value
 
@@ -493,7 +514,7 @@ astFromValue = function(value, tt)
     return astFromValue(_value, tt.ofType)
   end
 
-  if isNullish(_value) then
+  if value == nil then
     return nil
   end
 
@@ -559,10 +580,10 @@ astFromValue = function(value, tt)
   for fieldName,v in pairs(_value) do
     local fieldType
     if instanceof(tt, 'InputObject') then
-      local fieldDef = tt.fields[fieldName];
-      fieldType = fieldDef and fieldDef.kind;
+      local fieldDef = tt.fields[fieldName]
+      fieldType = fieldDef and fieldDef.kind
     end
-    local fieldValue = astFromValue(_value[fieldName], fieldType);
+    local fieldValue = astFromValue(_value[fieldName], fieldType)
     if fieldValue then
       table.insert(fields, {
         kind = Kind.OBJECT_FIELD,
@@ -571,6 +592,7 @@ astFromValue = function(value, tt)
       })
     end
   end
+
   return { kind = Kind.OBJECT, fields = fields }
 end
 
@@ -581,7 +603,6 @@ return {
   __Type = __Type,
   __Field = __Field,
   __EnumValue = __EnumValue,
-  TypeKind = TypeKind,
   __TypeKind = __TypeKind,
   SchemaMetaFieldDef = SchemaMetaFieldDef,
   TypeMetaFieldDef = TypeMetaFieldDef,

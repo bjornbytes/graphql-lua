@@ -23,6 +23,14 @@ function util.filter(t, fn)
   return res
 end
 
+function util.values(t)
+  local res = {}
+  for _, value in pairs(t) do
+    table.insert(res, value)
+  end
+  return res
+end
+
 function util.compose(f, g)
   return function(...) return f(g(...)) end
 end

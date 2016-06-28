@@ -63,6 +63,7 @@ local visitors = {
     enter = function(node, context)
       local field, parentField
       local name = node.name.value
+
       if name == '__schema' then
         field = introspection.SchemaMetaFieldDef.kind
       elseif name == '__type' then
@@ -74,7 +75,7 @@ local visitors = {
         -- false is a special value indicating that the field was not present in the type definition.
         field = parentField and parentField.kind or false
       end
-      
+
       table.insert(context.objects, field)
     end,
 

@@ -11,27 +11,6 @@ local function instanceof(t, s)
   return t.__type == s
 end
 
-local function resolveDirective(directive)
-  local res = {}
-  if directive.onQuery then table.insert(res, 'QUERY') end
-  if directive.onMutation then table.insert(res, 'MUTATION') end
-  if directive.onField then table.insert(res, 'FIELD') end
-  if directive.onFragmentDefinition then table.insert(res, 'FRAGMENT_DEFINITION') end
-  if directive.onFragmentSpread then table.insert(res, 'FRAGMENT_SPREAD') end
-  if directive.onInlineFragment then table.insert(res, 'INLINE_FRAGMENT') end
-  return res
-end
-
-local function mapToList(m)
-  local r = {}
-
-  for k,v in pairs(m) do
-    table.insert(r, v)
-  end
-
-  return r
-end
-
 local __Directive, __DirectiveLocation, __Type, __Field, __InputValue,__EnumValue, TypeKind, __TypeKind, SchemaMetaFieldDef, TypeMetaFieldDef, TypeNameMetaFieldDef, astFromValue, printAst, printers
 
 local __Schema = types.object({
@@ -49,14 +28,7 @@ local __Schema = types.object({
         description = 'A list of all types supported by this server.',
         kind = types.nonNull(types.list(types.nonNull(__Type))),
         resolve = function(schema)
-          local typeMap = schema:getTypeMap()
-          local res = {}
-
-          for k, v in pairs(typeMap) do
-            table.insert(res, typeMap[k])
-          end
-
-          return res
+          return util.values(schema:getTypeMap())
         end
       },
 
@@ -268,9 +240,9 @@ __Type = types.object({
         if instanceof(type, 'Enum') then
           local values = type.values;
           if not args.includeDeprecated then
-            values = util.filter(values, function(value) return not value.deprecationReason end);
+            values = util.filter(values, function(value) return not value.deprecationReason end)
           end
-          return mapToList(values);
+          return util.values(values)
         end
       end
     },
@@ -279,13 +251,22 @@ __Type = types.object({
       resolve = function(type)
         if instanceof(type, 'InputObject') then
           local fieldMap = type.fields;
-          local fields = {}; for k,v in pairs(fieldMap) do table.insert(fields, fieldMap[k]) end; return fields
+          local fields = {}
+
+          for k, v in pairs(fieldMap) do
+            table.insert(fields, fieldMap[k])
+          end
+
+          return fields
         end
       end
     },
-    ofType = { kind = __Type }
+
+    ofType = {
+      kind = __Type
+    }
   } end
-});
+})
 
 __Field = types.object({
   name = '__Field',
@@ -439,7 +420,7 @@ SchemaMetaFieldDef = {
   description = 'Access the current type schema of this server.',
   arguments = {},
   resolve = function(source, args, context, obj) return context.schema  end
-};
+}
 
 TypeMetaFieldDef = {
   name = '__type',

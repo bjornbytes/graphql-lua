@@ -114,22 +114,23 @@ function schema:getPossibleTypes(abstractType)
 end
 
 function schema.getParentField(context, name, count)
-  local parent = nil
-
   if name == '__schema' then
-    parent = introspection.SchemaMetaFieldDef
+    return introspection.SchemaMetaFieldDef
   elseif name == '__type' then
-    parent = introspection.TypeMetaFieldDef
+    return introspection.TypeMetaFieldDef
   elseif name == '__typename' then
-    parent = introspection.TypeNameMetaFieldDef
-  else
-    count = count or 1
-    local obj = context.objects[#context.objects - count]
-    if obj.ofType then obj = obj.ofType end
-    parent = obj.fields[name]
+    return introspection.TypeNameMetaFieldDef
   end
 
-  return parent
+  count = count or 1
+  local parent = context.objects[#context.objects - count]
+
+  -- Unwrap lists and non-null types
+  while parent.ofType do
+    parent = parent.ofType
+  end
+
+  return parent.fields[name]
 end
 
 return schema

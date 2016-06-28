@@ -33,7 +33,7 @@ local __Schema = types.object({
 
       queryType = {
         description = 'The type that query operations will be rooted at.',
-        kind = types.nonNull(__Type),
+        kind = __Type.nonNull,
         resolve = function(schema)
           return schema:getQueryType()
         end
@@ -174,9 +174,12 @@ __Type = types.object({
 
   fields = function()
     return {
+      name = types.string,
+      description = types.string,
+
       kind = {
         kind = __TypeKind.nonNull,
-        resolve = function (type)
+        resolve = function(type)
           if instanceof(type, 'Scalar') then
             return 'SCALAR'
           elseif instanceof(type, 'Object') then
@@ -198,32 +201,19 @@ __Type = types.object({
           error('Unknown kind of kind = ' .. type)
         end
       },
-      name = types.string,
-      description = types.string,
 
       fields = {
         kind = types.list(types.nonNull(__Field)),
         arguments = {
           includeDeprecated = { kind = types.boolean, defaultValue = false }
         },
-        resolve = function(t, args)
-          if instanceof(t, 'Object') or instanceof(t, 'Interface') then
-            local fieldMap = t.fields
-            local fields = {}
-
-            for k,v in pairs(fieldMap) do
-              table.insert(fields, fieldMap[k])
-            end
-
-            if not args.includeDeprecated then
-              fields = util.filter(fields, function(field) return not field.deprecationReason end)
-            end
-            if #fields > 0 then
-              return fields
-            else
-              return cjson.empty_array
-            end
+        resolve = function(type, arguments)
+          if instanceof(type, 'Object') or instanceof(type, 'Interface') then
+            return util.filter(util.values(type.fields), function(field)
+              return arguments.includeDeprecated or field.deprecationReason == nil
+            end)
           end
+
           return nil
         end
       },
@@ -232,14 +222,14 @@ __Type = types.object({
         kind = types.list(types.nonNull(__Type)),
         resolve = function(type)
           if instanceof(type, 'Object') then
-            return type.interfaces and type.interfaces or cjson.empty_array
+            return type.interfaces
           end
         end
       },
 
       possibleTypes = {
         kind = types.list(types.nonNull(__Type)),
-        resolve = function(type, args, context, obj)
+        resolve = function(type, arguments, context)
           if instanceof(type, 'Interface') or instanceof(type, 'Union') then
             return context.schema:getPossibleTypes(type)
           end
@@ -251,13 +241,11 @@ __Type = types.object({
         arguments = {
           includeDeprecated = { kind = types.boolean, defaultValue = false }
         },
-        resolve = function(type, args)
+        resolve = function(type, arguments)
           if instanceof(type, 'Enum') then
-            local values = type.values
-            if not args.includeDeprecated then
-              values = util.filter(values, function(value) return not value.deprecationReason end)
-            end
-            return util.values(values)
+            return util.filter(util.values(type.values), function(value)
+              return arguments.includeDeprecated or not value.deprecationReason
+            end)
           end
         end
       },
@@ -266,14 +254,7 @@ __Type = types.object({
         kind = types.list(types.nonNull(__InputValue)),
         resolve = function(type)
           if instanceof(type, 'InputObject') then
-            local fieldMap = type.fields
-            local fields = {}
-
-            for k, v in pairs(fieldMap) do
-              table.insert(fields, fieldMap[k])
-            end
-
-            return fields
+            return util.values(type.fields)
           end
         end
       },
@@ -287,50 +268,55 @@ __Type = types.object({
 
 __Field = types.object({
   name = '__Field',
-  description =
-    'Object and Interface types are described by a list of Fields, each of ' ..
-    'which has a name, potentially a list of arguments, and a return type.',
+
+  description = trim [[
+    Object and Interface types are described by a list of Fields, each of
+    which has a name, potentially a list of arguments, and a return type.
+  ]],
+
   fields = function()
     return {
-      name = types.nonNull(types.string),
+      name = types.string.nonNull,
       description = types.string,
+
       args = {
         -- kind = types.list(__InputValue),
         kind = types.nonNull(types.list(types.nonNull(__InputValue))),
         resolve = function(field)
-          local args = {}
-          local transform = function(a, n)
+          return util.map(field.arguments or {}, function(a, n)
             if a.__type then
-              return {kind = a, name = n}
+              return { kind = a, name = n }
             else
               if not a.name then
-                local r = {name = n}
+                local r = { name = n }
+
                 for k,v in pairs(a) do
                   r[k] = v
                 end
+
                 return r
               else
                 return a
               end
             end
-          end
-          for k, v in pairs(field.arguments or {}) do table.insert(args, transform(v, k)) end
-          -- return args
-          if #args > 0 then return args else return cjson.empty_array end
+          end)
         end
       },
+
       type = {
-        kind = types.nonNull(__Type),
+        kind = __Type.nonNull,
         resolve = function(field)
           return field.kind
         end
       },
+
       isDeprecated = {
-        kind = types.nonNull(types.boolean),
+        kind = types.boolean.nonNull,
         resolve = function(field)
           return field.deprecationReason ~= nil
         end
       },
+
       deprecationReason = types.string
     }
   end
@@ -347,13 +333,19 @@ __InputValue = types.object({
 
   fields = function()
     return {
-      name = types.nonNull(types.string),
+      name = types.string.nonNull,
       description = types.string,
-      type = { kind = types.nonNull(__Type), resolve = function(field) return field.kind end },
+
+      type = {
+        kind = types.nonNull(__Type),
+        resolve = function(field)
+          return field.kind
+        end
+      },
+
       defaultValue = {
         kind = types.string,
-        description = 'A GraphQL-formatted string representing the default value for this ' ..
-          'input value.',
+        description = 'A GraphQL-formatted string representing the default value for this input value.',
         resolve = function(inputVal)
           return inputVal.defaultValue and printAst(astFromValue(inputVal.defaultValue, inputVal)) or nil
         end
@@ -440,7 +432,9 @@ SchemaMetaFieldDef = {
   kind = __Schema.nonNull,
   description = 'Access the current type schema of this server.',
   arguments = {},
-  resolve = function(source, args, context, obj) return context.schema end
+  resolve = function(_, _, info)
+    return info.schema
+  end
 }
 
 TypeMetaFieldDef = {
@@ -449,9 +443,10 @@ TypeMetaFieldDef = {
   description = 'Request the type information of a single type.',
   arguments = {
     name = types.string.nonNull
-  }
-  --,resolve = function(source, { name } = { name = string }, context, { schema })
-  --  return schema.getType(name) end
+  },
+  resolve = function(_, arguments, info)
+    return info.schema:getType(arguments.name)
+  end
 }
 
 TypeNameMetaFieldDef = {
@@ -459,7 +454,9 @@ TypeNameMetaFieldDef = {
   kind = types.string.nonNull,
   description = 'The name of the current Object type at runtime.',
   arguments = {},
-  resolve = function(source, args, context, obj) return obj.parentType.name end
+  resolve = function(_, _, info)
+    return info.parentType.name
+  end
 }
 
 -- Produces a GraphQL Value AST given a lua value.

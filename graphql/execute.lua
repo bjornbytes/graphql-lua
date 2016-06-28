@@ -251,7 +251,7 @@ evaluateSelections = function(objectType, object, selections, context)
 
   return util.map(groupedFieldSet, function(fields)
     local v = getFieldEntry(objectType, object, fields, context)
-    if v ~= nil then return v else return cjson.null end
+    if v ~= nil then return v else return nil end
   end)
 end
 

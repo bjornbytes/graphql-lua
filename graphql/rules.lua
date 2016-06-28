@@ -32,7 +32,7 @@ end
 function rules.fieldsDefinedOnType(node, context)
   if context.objects[#context.objects] == false then
     local parent = context.objects[#context.objects - 1]
-    if parent.ofType then parent = parent.ofType end
+    while parent.ofType do parent = parent.ofType end
     error('Field "' .. node.name.value .. '" is not defined on type "' .. parent.name .. '"')
   end
 end
@@ -275,10 +275,9 @@ end
 
 function rules.fragmentSpreadIsPossible(node, context)
   local fragment = node.kind == 'inlineFragment' and node or context.fragmentMap[node.name.value]
+
   local parentType = context.objects[#context.objects - 1]
-  if parentType.ofType then parentType = parentType.ofType end
-  if parentType.ofType then parentType = parentType.ofType end
-  if parentType.ofType then parentType = parentType.ofType end
+  while parentType.ofType do parentType = parentType.ofType end
 
   local fragmentType
   if node.kind == 'inlineFragment' then
@@ -301,7 +300,7 @@ function rules.fragmentSpreadIsPossible(node, context)
         types[kind.types[i]] = kind.types[i]
       end
       return types
-    else 
+    else
       return {}
     end
   end

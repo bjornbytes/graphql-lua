@@ -10,9 +10,9 @@ local function trim(s)
   return s:gsub('^%s+', ''):gsub('%s$', ''):gsub('%s%s+', ' ')
 end
 
-local __Directive, __DirectiveLocation, __Type, __Field, __InputValue,__EnumValue, __TypeKind, SchemaMetaFieldDef, TypeMetaFieldDef, TypeNameMetaFieldDef, astFromValue, printAst, printers
+local __Schema, __Directive, __DirectiveLocation, __Type, __Field, __InputValue,__EnumValue, __TypeKind
 
-local __Schema = types.object({
+__Schema = types.object({
   name = '__Schema',
 
   description = trim [[
@@ -354,7 +354,7 @@ __InputValue = types.object({
         kind = types.string,
         description = 'A GraphQL-formatted string representing the default value for this input value.',
         resolve = function(inputVal)
-          return inputVal.defaultValue and printAst(astFromValue(inputVal.defaultValue, inputVal)) or nil
+          return inputVal.defaultValue and tostring(inputVal.defaultValue)
         end
       }
     }
@@ -429,12 +429,7 @@ __TypeKind = types.enum({
   }
 })
 
---
--- Note that these are GraphQLFieldDefinition and not GraphQLFieldConfig,
--- so the format for args is different.
---
-
-SchemaMetaFieldDef = {
+local Schema = {
   name = '__schema',
   kind = __Schema.nonNull,
   description = 'Access the current type schema of this server.',
@@ -444,7 +439,7 @@ SchemaMetaFieldDef = {
   end
 }
 
-TypeMetaFieldDef = {
+local Type = {
   name = '__type',
   kind = __Type,
   description = 'Request the type information of a single type.',
@@ -456,7 +451,7 @@ TypeMetaFieldDef = {
   end
 }
 
-TypeNameMetaFieldDef = {
+local TypeName = {
   name = '__typename',
   kind = types.string.nonNull,
   description = 'The name of the current Object type at runtime.',
@@ -466,139 +461,6 @@ TypeNameMetaFieldDef = {
   end
 }
 
--- Produces a GraphQL Value AST given a lua value.
-
--- Optionally, a GraphQL type may be provided, which will be used to
--- disambiguate between value primitives.
-
--- | JSON Value    | GraphQL Value        |
--- | ------------- | -------------------- |
--- | Object        | Input Object         |
--- | Array         | List                 |
--- | Boolean       | Boolean              |
--- | String        | String / Enum Value  |
--- | Number        | Int / Float          |
-
-local Kind = {
-  LIST = 'ListValue',
-  BOOLEAN = 'BooleanValue',
-  FLOAT = 'FloatValue',
-  INT = 'IntValue',
-  FLOAT = 'FloatValue',
-  ENUM = 'EnumValue',
-  STRING = 'StringValue',
-  OBJECT_FIELD = 'ObjectField',
-  NAME = 'Name',
-  OBJECT = 'ObjectValue'
-}
-
-printers = {
-  IntValue = function(v) return v.value end,
-  FloatValue = function(v) return v.value end,
-  StringValue = function(v) return v.value end,
-  BooleanValue = function(v) return tostring(v.value) end,
-  EnumValue = function(v) return v.value end,
-  ListValue = function(v) return '[' .. table.concat(util.map(v.values, printAst), ', ') .. ']' end,
-  ObjectValue = function(v) return '{' .. table.concat(util.map(v.fields, printAst), ', ') .. '}' end,
-  ObjectField = function(v) return v.name .. ': ' .. v.value end
-}
-
-printAst = function(v)
-  do return '' end
-  return printers[v.kind](v)
-end
-
-astFromValue = function(value, tt)
-  do return nil end
-
-  -- Ensure flow knows that we treat function params as const.
-  local _value = value
-
-  if instanceof(tt,'NonNull') then
-    -- Note: we're not checking that the result is non-null.
-    -- This function is not responsible for validating the input value.
-    return astFromValue(_value, tt.ofType)
-  end
-
-  if value == nil then
-    return nil
-  end
-
-  -- Convert JavaScript array to GraphQL list. If the GraphQLType is a list, but
-  -- the value is not an array, convert the value using the list's item type.
-  if type(_value) == 'table' and #_value > 0 then
-    local itemType = instanceof(tt, 'List') and tt.ofType or nil
-    return {
-      kind = Kind.LIST,
-      values = util.map(_value, function(item)
-        local itemValue = astFromValue(item, itemType)
-        assert(itemValue, 'Could not create AST item.')
-        return itemValue
-      end)
-    }
-  elseif instanceof(tt, 'List') then
-    -- Because GraphQL will accept single values as a "list of one" when
-    -- expecting a list, if there's a non-array value and an expected list type,
-    -- create an AST using the list's item type.
-    return astFromValue(_value, tt.ofType)
-  end
-
-  if type(_value) == 'boolean' then
-    return { kind = Kind.BOOLEAN, value = _value }
-  end
-
-  -- JavaScript numbers can be Float or Int values. Use the GraphQLType to
-  -- differentiate if available, otherwise prefer Int if the value is a
-  -- valid Int.
-  if type(_value) == 'number' then
-    local stringNum = String(_value)
-    local isIntValue = _value%1 == 0
-    if isIntValue then
-      if tt == types.float then
-        return { kind =  Kind.FLOAT, value = stringNum .. '.0' }
-      end
-      return { kind = Kind.INT, value = stringNum }
-    end
-    return { kind = Kind.FLOAT, value = stringNum }
-  end
-
-  -- JavaScript strings can be Enum values or String values. Use the
-  -- GraphQLType to differentiate if possible.
-  if type(_value) == 'string' then
-    if instanceof(tt, 'Enum') and _value:match('/^[_a-zA-Z][_a-zA-Z0-9]*$/') then
-      return { kind =Kind.ENUM, value = _value }
-    end
-    return {
-      kind = Kind.STRING,
-      value = _value
-    }
-  end
-
-  -- last remaining possible typeof
-  assert(type(_value) == 'table')
-
-  -- Populate the fields of the input object by creating ASTs from each value
-  -- in the JavaScript object.
-  local fields = {}
-  for fieldName,v in pairs(_value) do
-    local fieldType
-    if instanceof(tt, 'InputObject') then
-      local fieldDef = tt.fields[fieldName]
-      fieldType = fieldDef and fieldDef.kind
-    end
-    local fieldValue = astFromValue(_value[fieldName], fieldType)
-    if fieldValue then
-      table.insert(fields, {
-        kind = Kind.OBJECT_FIELD,
-        name = { kind = Kind.NAME, value = fieldName },
-        value = fieldValue
-      })
-    end
-  end
-
-  return { kind = Kind.OBJECT, fields = fields }
-end
-
 return {
   __Schema = __Schema,
   __Directive = __Directive,
@@ -607,7 +469,7 @@ return {
   __Field = __Field,
   __EnumValue = __EnumValue,
   __TypeKind = __TypeKind,
-  SchemaMetaFieldDef = SchemaMetaFieldDef,
-  TypeMetaFieldDef = TypeMetaFieldDef,
-  TypeNameMetaFieldDef = TypeNameMetaFieldDef
+  Schema = Schema,
+  Type = Type,
+  TypeName = TypeName
 }

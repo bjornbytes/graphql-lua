@@ -202,11 +202,11 @@ local function getFieldEntry(objectType, object, fields, context)
   local fieldType
 
   if fieldName == '__schema' then
-    fieldType = introspection.SchemaMetaFieldDef
+    fieldType = introspection.Schema
   elseif fieldName == '__type' then
-    fieldType = introspection.TypeMetaFieldDef
+    fieldType = introspection.Type
   elseif fieldName == '__typename' then
-    fieldType = introspection.TypeNameMetaFieldDef
+    fieldType = introspection.TypeName
   else
     fieldType = objectType.fields[fieldName]
   end

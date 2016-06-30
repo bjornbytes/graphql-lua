@@ -115,11 +115,11 @@ end
 
 function schema.getParentField(context, name, count)
   if name == '__schema' then
-    return introspection.SchemaMetaFieldDef
+    return introspection.Schema
   elseif name == '__type' then
-    return introspection.TypeMetaFieldDef
+    return introspection.Type
   elseif name == '__typename' then
-    return introspection.TypeNameMetaFieldDef
+    return introspection.TypeName
   end
 
   count = count or 1

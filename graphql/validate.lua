@@ -65,11 +65,11 @@ local visitors = {
       local name = node.name.value
 
       if name == '__schema' then
-        field = introspection.SchemaMetaFieldDef.kind
+        field = introspection.Schema.kind
       elseif name == '__type' then
-        field = introspection.TypeMetaFieldDef.kind
+        field = introspection.Type.kind
       elseif name == '__typename' then
-        field = introspection.TypeNameMetaFieldDef.kind
+        field = introspection.TypeName.kind
       else
         parentField = getParentField(context, name, 0)
         -- false is a special value indicating that the field was not present in the type definition.

@@ -2,7 +2,6 @@ local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
 local introspection = require(path .. '.introspection')
-local cjson = require 'cjson' -- needs to be cloned from here https://github.com/openresty/lua-cjson for cjson.empty_array feature
 
 local function typeFromAST(node, schema)
   local innerType
@@ -154,7 +153,7 @@ local function completeValue(fieldType, result, subSelections, context)
     local completedResult = completeValue(innerType, result, subSelections, context)
 
     if completedResult == nil then
-      error('No value provided for non-null ' .. innerType.name)
+      error('No value provided for non-null ' .. (innerType.name or innerType.__type))
     end
 
     return completedResult
@@ -165,8 +164,6 @@ local function completeValue(fieldType, result, subSelections, context)
   end
 
   if fieldTypeName == 'List' then
-    if result == cjson.empty_array then return result end
-
     local innerType = fieldType.ofType
 
     if type(result) ~= 'table' then

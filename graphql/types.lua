@@ -266,12 +266,12 @@ function types.directive(config)
     name = config.name,
     description = config.description,
     arguments = config.arguments,
-    onQuery = config.onQuery or false,
-    onMutation = config.onMutation or false,
-    onField = config.onField or false,
-    onFragmentDefinition = config.onFragmentDefinition or false,
-    onFragmentSpread = config.onFragmentSpread or false,
-    onInlineFragment = config.onInlineFragment or false,
+    onQuery = config.onQuery,
+    onMutation = config.onMutation,
+    onField = config.onField,
+    onFragmentDefinition = config.onFragmentDefinition,
+    onFragmentSpread = config.onFragmentSpread,
+    onInlineFragment = config.onInlineFragment
   }
 
   return instance

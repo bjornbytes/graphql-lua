@@ -1,7 +1,6 @@
 local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
-local cjson = require 'cjson' -- needs to be cloned from here https://github.com/openresty/lua-cjson for cjson.empty_array feature
 
 local function instanceof(t, s)
   return t.__type == s
@@ -79,7 +78,19 @@ __Directive = types.object({
       locations = {
         kind = types.nonNull(types.list(types.nonNull(
           __DirectiveLocation
-        )))
+        ))),
+        resolve = function(directive)
+          local res = {}
+
+          if directive.onQuery then table.insert(res, 'QUERY') end
+          if directive.onMutation then table.insert(res, 'MUTATION') end
+          if directive.onField then table.insert(res, 'FIELD') end
+          if directive.onFragmentDefinition then table.insert(res, 'FRAGMENT_DEFINITION') end
+          if directive.onFragmentSpread then table.insert(res, 'FRAGMENT_SPREAD') end
+          if directive.onInlineFragment then table.insert(res, 'INLINE_FRAGMENT') end
+
+          return res
+        end
       },
 
       args = {
@@ -105,11 +116,7 @@ __Directive = types.object({
             table.insert(args, transform(v, k))
           end
 
-          if #args > 0 then
-            return args
-          else
-            return cjson.empty_array
-          end
+          return args
         end
       }
     }
@@ -488,8 +495,8 @@ local Kind = {
 printers = {
   IntValue = function(v) return v.value end,
   FloatValue = function(v) return v.value end,
-  StringValue = function(v) return cjson.encode(v.value) end,
-  BooleanValue = function(v) return cjson.encode(v.value) end,
+  StringValue = function(v) return v.value end,
+  BooleanValue = function(v) return tostring(v.value) end,
   EnumValue = function(v) return v.value end,
   ListValue = function(v) return '[' .. table.concat(util.map(v.values, printAst), ', ') .. ']' end,
   ObjectValue = function(v) return '{' .. table.concat(util.map(v.fields, printAst), ', ') .. '}' end,
@@ -497,10 +504,12 @@ printers = {
 }
 
 printAst = function(v)
+  do return '' end
   return printers[v.kind](v)
 end
 
 astFromValue = function(value, tt)
+  do return nil end
 
   -- Ensure flow knows that we treat function params as const.
   local _value = value
@@ -559,17 +568,14 @@ astFromValue = function(value, tt)
     if instanceof(tt, 'Enum') and _value:match('/^[_a-zA-Z][_a-zA-Z0-9]*$/') then
       return { kind =Kind.ENUM, value = _value }
     end
-    -- Use JSON stringify, which uses the same string encoding as GraphQL,
-    -- then remove the quotes.
     return {
       kind = Kind.STRING,
-      value = (cjson.encode(_value)):sub(1, -1)
+      value = _value
     }
   end
 
   -- last remaining possible typeof
   assert(type(_value) == 'table')
-  assert(_value ~= nil)
 
   -- Populate the fields of the input object by creating ASTs from each value
   -- in the JavaScript object.

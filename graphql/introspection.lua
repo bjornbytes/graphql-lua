@@ -349,7 +349,7 @@ __InputValue = types.object({
         kind = types.string,
         description = 'A GraphQL-formatted string representing the default value for this input value.',
         resolve = function(inputVal)
-          return inputVal.defaultValue and tostring(inputVal.defaultValue)
+          return inputVal.defaultValue and tostring(inputVal.defaultValue) -- TODO improve serialization a lot
         end
       }
     }

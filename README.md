@@ -86,7 +86,7 @@ Status
 - [x] Parsing
   - [ ] Improve error messages
 - [x] Type system
-- [ ] Introspection
+- [x] Introspection
 - [x] Validation
 - [x] Execution
   - [ ] Asynchronous execution (coroutines)

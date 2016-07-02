@@ -1,6 +1,6 @@
 local parse = require 'graphql.parse'
 local validate = require 'graphql.validate'
-local schema = require 'tests/data/species'
+local schema = require 'tests/data/schema'
 
 local function expectError(message, document)
   if not message then

@@ -2,7 +2,21 @@ local path = (...):gsub('%.[^%.]+$', '')
 local rules = require(path .. '.rules')
 local util = require(path .. '.util')
 local introspection = require(path .. '.introspection')
-local getParentField = require(path .. '.schema').getParentField
+local schema = require(path .. '.schema')
+
+local function getParentField(context, name, count)
+  if introspection.fieldMap[name] then return introspection.fieldMap[name] end
+
+  count = count or 1
+  local parent = context.objects[#context.objects - count]
+
+  -- Unwrap lists and non-null types
+  while parent.ofType do
+    parent = parent.ofType
+  end
+
+  return parent.fields[name]
+end
 
 local visitors = {
   document = {
@@ -61,22 +75,15 @@ local visitors = {
 
   field = {
     enter = function(node, context)
-      local field, parentField
       local name = node.name.value
 
-      if name == '__schema' then
-        field = introspection.Schema.kind
-      elseif name == '__type' then
-        field = introspection.Type.kind
-      elseif name == '__typename' then
-        field = introspection.TypeName.kind
+      if introspection.fieldMap[name] then
+        table.insert(context.objects, introspection.fieldMap[name].kind)
       else
-        parentField = getParentField(context, name, 0)
+        local parentField = getParentField(context, name, 0)
         -- false is a special value indicating that the field was not present in the type definition.
-        field = parentField and parentField.kind or false
+        table.insert(context.objects, parentField and parentField.kind or false)
       end
-
-      table.insert(context.objects, field)
     end,
 
     exit = function(node, context)
@@ -176,8 +183,9 @@ local visitors = {
                 collectTransitiveVariables(argument)
               end
             end
-            if referencedNode.selectionSet then 
-              collectTransitiveVariables(referencedNode.selectionSet) 
+
+            if referencedNode.selectionSet then
+              collectTransitiveVariables(referencedNode.selectionSet)
             end
           elseif referencedNode.kind == 'argument' then
             return collectTransitiveVariables(referencedNode.value)
@@ -201,6 +209,7 @@ local visitors = {
     exit = function(node, context)
       table.remove(context.objects)
     end,
+
     rules = {
       rules.fragmentSpreadTargetDefined,
       rules.fragmentSpreadIsPossible,

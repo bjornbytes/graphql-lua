@@ -1,8 +1,23 @@
 local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
+local schema = require(path .. '.schema')
+local introspection = require(path .. '.introspection')
 
-local getParentField = require(path .. '.schema').getParentField
+local function getParentField(context, name, count)
+  if introspection.fieldMap[name] then return introspection.fieldMap[name] end
+
+  count = count or 1
+  local parent = context.objects[#context.objects - count]
+
+  -- Unwrap lists and non-null types
+  while parent.ofType do
+    parent = parent.ofType
+  end
+
+  return parent.fields[name]
+end
+
 local rules = {}
 
 function rules.uniqueOperationNames(node, context)
@@ -179,7 +194,6 @@ function rules.argumentsOfCorrectType(node, context)
   if node.arguments then
     local parentField = getParentField(context, node.name.value)
     for _, argument in pairs(node.arguments) do
-
       local name = argument.name.value
       local argumentType = parentField.arguments[name]
       util.coerceValue(argument.value, argumentType.kind or argumentType)

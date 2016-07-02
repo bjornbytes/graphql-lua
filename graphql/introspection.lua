@@ -471,5 +471,10 @@ return {
   __TypeKind = __TypeKind,
   Schema = Schema,
   Type = Type,
-  TypeName = TypeName
+  TypeName = TypeName,
+  fieldMap = {
+    __schema = Schema,
+    __type = Type,
+    __typename = TypeName
+  }
 }

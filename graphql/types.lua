@@ -122,26 +122,29 @@ end
 function types.enum(config)
   assert(type(config.name) == 'string', 'type name must be provided as a string')
   assert(type(config.values) == 'table', 'values table must be provided')
+
+  local instance
   local values = {}
-  for k, v in pairs(config.values) do
-    local val = type(v) == 'table' and v or {value = v}
-    values[k] = {
-      name = k,
-      description = val.description,
-      deprecationReason = val.deprecationReason,
-      value = val.value
+
+  for name, entry in pairs(config.values) do
+    entry = type(entry) == 'table' and entry or { value = entry }
+
+    values[name] = {
+      name = name,
+      description = entry.description,
+      deprecationReason = entry.deprecationReason,
+      value = entry.value
     }
   end
-  local instance = {
+
+  instance = {
     __type = 'Enum',
     name = config.name,
     description = config.description,
-    serialize = function(self, v)
-      if self.values[v] then return self.values[v].value
-      else return nil
-      end
-    end,
-    values = values
+    values = values,
+    serialize = function(name)
+      return instance.values[name] and instance.values[name].value or name
+    end
   }
 
   instance.nonNull = types.nonNull(instance)

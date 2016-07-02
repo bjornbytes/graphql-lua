@@ -178,11 +178,8 @@ local function completeValue(fieldType, result, subSelections, context)
     return values
   end
 
-  if fieldTypeName == 'Scalar' then
+  if fieldTypeName == 'Scalar' or fieldTypeName == 'Enum' then
     return fieldType.serialize(result)
-  end
-  if fieldTypeName == 'Enum' then
-    return fieldType:serialize(result)
   end
 
   if fieldTypeName == 'Object' then
@@ -199,17 +196,7 @@ local function getFieldEntry(objectType, object, fields, context)
   local firstField = fields[1]
   local fieldName = firstField.name.value
   local responseKey = getFieldResponseKey(firstField)
-  local fieldType
-
-  if fieldName == '__schema' then
-    fieldType = introspection.Schema
-  elseif fieldName == '__type' then
-    fieldType = introspection.Type
-  elseif fieldName == '__typename' then
-    fieldType = introspection.TypeName
-  else
-    fieldType = objectType.fields[fieldName]
-  end
+  local fieldType = introspection.fieldMap[fieldName] or objectType.fields[fieldName]
 
   if fieldType == nil then
     return nil
@@ -247,8 +234,7 @@ evaluateSelections = function(objectType, object, selections, context)
   local groupedFieldSet = collectFields(objectType, selections, {}, {}, context)
 
   return util.map(groupedFieldSet, function(fields)
-    local v = getFieldEntry(objectType, object, fields, context)
-    if v ~= nil then return v else return nil end
+    return getFieldEntry(objectType, object, fields, context)
   end)
 end
 

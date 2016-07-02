@@ -41,6 +41,10 @@ function util.bind1(func, x)
   end
 end
 
+function util.trim(s)
+  return s:gsub('^%s+', ''):gsub('%s$', ''):gsub('%s%s+', ' ')
+end
+
 function util.coerceValue(node, schemaType, variables)
   variables = variables or {}
 

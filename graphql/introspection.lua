@@ -2,20 +2,12 @@ local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
 
-local function instanceof(t, s)
-  return t.__type == s
-end
-
-local function trim(s)
-  return s:gsub('^%s+', ''):gsub('%s$', ''):gsub('%s%s+', ' ')
-end
-
 local __Schema, __Directive, __DirectiveLocation, __Type, __Field, __InputValue,__EnumValue, __TypeKind
 
 __Schema = types.object({
   name = '__Schema',
 
-  description = trim [[
+  description = util.trim [[
     A GraphQL Schema defines the capabilities of a GraphQL server. It exposes all available types
     and directives on the server, as well as the entry points for query and mutation operations.
   ]],
@@ -60,7 +52,7 @@ __Schema = types.object({
 __Directive = types.object({
   name = '__Directive',
 
-  description = trim [[
+  description = util.trim [[
     A Directive provides a way to describe alternate runtime execution and type validation behavior
     in a GraphQL document.
 
@@ -126,7 +118,7 @@ __Directive = types.object({
 __DirectiveLocation = types.enum({
   name = '__DirectiveLocation',
 
-  description = trim [[
+  description = util.trim [[
     A Directive can be adjacent to many parts of the GraphQL language, a __DirectiveLocation
     describes one such possible adjacencies.
   ]],
@@ -167,7 +159,7 @@ __DirectiveLocation = types.enum({
 __Type = types.object({
   name = '__Type',
 
-  description = trim [[
+  description = util.trim [[
     The fundamental unit of any GraphQL Schema is the type. There are
     many kinds of types in GraphQL as represented by the `__TypeKind` enum.
 
@@ -186,37 +178,40 @@ __Type = types.object({
 
       kind = {
         kind = __TypeKind.nonNull,
-        resolve = function(type)
-          if instanceof(type, 'Scalar') then
+        resolve = function(kind)
+          if kind.__type == 'Scalar' then
             return 'SCALAR'
-          elseif instanceof(type, 'Object') then
+          elseif kind.__type == 'Object' then
             return 'OBJECT'
-          elseif instanceof(type, 'Interface') then
+          elseif kind.__type == 'Interface' then
             return 'INTERFACE'
-          elseif instanceof(type, 'Union') then
+          elseif kind.__type == 'Union' then
             return 'UNION'
-          elseif instanceof(type, 'Enum') then
+          elseif kind.__type == 'Enum' then
             return 'ENUM'
-          elseif instanceof(type, 'InputObject') then
+          elseif kind.__type == 'InputObject' then
             return 'INPUT_OBJECT'
-          elseif instanceof(type, 'List') then
+          elseif kind.__type == 'List' then
             return 'LIST'
-          elseif instanceof(type, 'NonNull') then
+          elseif kind.__type == 'NonNull' then
             return 'NON_NULL'
           end
 
-          error('Unknown kind of kind = ' .. type)
+          error('Unknown type ' .. kind)
         end
       },
 
       fields = {
         kind = types.list(types.nonNull(__Field)),
         arguments = {
-          includeDeprecated = { kind = types.boolean, defaultValue = false }
+          includeDeprecated = {
+            kind = types.boolean,
+            defaultValue = false
+          }
         },
-        resolve = function(type, arguments)
-          if instanceof(type, 'Object') or instanceof(type, 'Interface') then
-            return util.filter(util.values(type.fields), function(field)
+        resolve = function(kind, arguments)
+          if kind.__type == 'Object' or kind.__type == 'Interface' then
+            return util.filter(util.values(kind.fields), function(field)
               return arguments.includeDeprecated or field.deprecationReason == nil
             end)
           end
@@ -227,18 +222,18 @@ __Type = types.object({
 
       interfaces = {
         kind = types.list(types.nonNull(__Type)),
-        resolve = function(type)
-          if instanceof(type, 'Object') then
-            return type.interfaces
+        resolve = function(kind)
+          if kind.__type == 'Object' then
+            return kind.interfaces
           end
         end
       },
 
       possibleTypes = {
         kind = types.list(types.nonNull(__Type)),
-        resolve = function(type, arguments, context)
-          if instanceof(type, 'Interface') or instanceof(type, 'Union') then
-            return context.schema:getPossibleTypes(type)
+        resolve = function(kind, arguments, context)
+          if kind.__type == 'Interface' or kind.__type == 'Union' then
+            return context.schema:getPossibleTypes(kind)
           end
         end
       },
@@ -248,9 +243,9 @@ __Type = types.object({
         arguments = {
           includeDeprecated = { kind = types.boolean, defaultValue = false }
         },
-        resolve = function(type, arguments)
-          if instanceof(type, 'Enum') then
-            return util.filter(util.values(type.values), function(value)
+        resolve = function(kind, arguments)
+          if kind.__type == 'Enum' then
+            return util.filter(util.values(kind.values), function(value)
               return arguments.includeDeprecated or not value.deprecationReason
             end)
           end
@@ -259,9 +254,9 @@ __Type = types.object({
 
       inputFields = {
         kind = types.list(types.nonNull(__InputValue)),
-        resolve = function(type)
-          if instanceof(type, 'InputObject') then
-            return util.values(type.fields)
+        resolve = function(kind)
+          if kind.__type == 'InputObject' then
+            return util.values(kind.fields)
           end
         end
       },
@@ -276,7 +271,7 @@ __Type = types.object({
 __Field = types.object({
   name = '__Field',
 
-  description = trim [[
+  description = util.trim [[
     Object and Interface types are described by a list of Fields, each of
     which has a name, potentially a list of arguments, and a return type.
   ]],
@@ -332,7 +327,7 @@ __Field = types.object({
 __InputValue = types.object({
   name = '__InputValue',
 
-  description = trim [[
+  description = util.trim [[
     Arguments provided to Fields or Directives and the input fields of an
     InputObject are represented as Input Values which describe their type
     and optionally a default value.

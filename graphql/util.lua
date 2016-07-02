@@ -13,6 +13,24 @@ function util.find(t, fn)
   end
 end
 
+function util.filter(t, fn)
+  local res = {}
+  for k,v in pairs(t) do
+    if fn(v) then
+      table.insert(res, v)
+    end
+  end
+  return res
+end
+
+function util.values(t)
+  local res = {}
+  for _, value in pairs(t) do
+    table.insert(res, value)
+  end
+  return res
+end
+
 function util.compose(f, g)
   return function(...) return f(g(...)) end
 end
@@ -23,14 +41,8 @@ function util.bind1(func, x)
   end
 end
 
-function util.getParentField(context, name, count)
-  count = count == nil and 1 or count
-  local obj = context.objects[#context.objects - count]
-  if obj.__type == 'List' then
-    return obj.ofType.fields[name]
-  else
-    return obj.fields[name]
-  end
+function util.trim(s)
+  return s:gsub('^%s+', ''):gsub('%s$', ''):gsub('%s%s+', ' ')
 end
 
 function util.coerceValue(node, schemaType, variables)

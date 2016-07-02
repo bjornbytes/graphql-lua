@@ -61,6 +61,7 @@ function types.object(config)
   local instance = {
     __type = 'Object',
     name = config.name,
+    description = config.description,
     isTypeOf = config.isTypeOf,
     fields = fields,
     interfaces = config.interfaces
@@ -108,6 +109,8 @@ function initFields(kind, fields)
     result[fieldName] = {
       name = fieldName,
       kind = field.kind,
+      description = field.description,
+      deprecationReason = field.deprecationReason,
       arguments = field.arguments or {},
       resolve = kind == 'Object' and field.resolve or nil
     }
@@ -120,11 +123,28 @@ function types.enum(config)
   assert(type(config.name) == 'string', 'type name must be provided as a string')
   assert(type(config.values) == 'table', 'values table must be provided')
 
-  local instance = {
+  local instance
+  local values = {}
+
+  for name, entry in pairs(config.values) do
+    entry = type(entry) == 'table' and entry or { value = entry }
+
+    values[name] = {
+      name = name,
+      description = entry.description,
+      deprecationReason = entry.deprecationReason,
+      value = entry.value
+    }
+  end
+
+  instance = {
     __type = 'Enum',
     name = config.name,
     description = config.description,
-    values = config.values
+    values = values,
+    serialize = function(name)
+      return instance.values[name] and instance.values[name].value or name
+    end
   }
 
   instance.nonNull = types.nonNull(instance)
@@ -181,6 +201,7 @@ end
 
 types.int = types.scalar({
   name = 'Int',
+  description = "The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. ", 
   serialize = coerceInt,
   parseValue = coerceInt,
   parseLiteral = function(node)
@@ -203,6 +224,7 @@ types.float = types.scalar({
 
 types.string = types.scalar({
   name = 'String',
+  description = "The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.",
   serialize = tostring,
   parseValue = tostring,
   parseLiteral = function(node)
@@ -218,6 +240,7 @@ end
 
 types.boolean = types.scalar({
   name = 'Boolean',
+  description = "The `Boolean` scalar type represents `true` or `false`.",
   serialize = toboolean,
   parseValue = toboolean,
   parseLiteral = function(node)
@@ -246,9 +269,12 @@ function types.directive(config)
     name = config.name,
     description = config.description,
     arguments = config.arguments,
-    onOperation = config.onOperation or false,
-    onFragment = config.onOperation or false,
-    onField = config.onField or false
+    onQuery = config.onQuery,
+    onMutation = config.onMutation,
+    onField = config.onField,
+    onFragmentDefinition = config.onFragmentDefinition,
+    onFragmentSpread = config.onFragmentSpread,
+    onInlineFragment = config.onInlineFragment
   }
 
   return instance
@@ -256,22 +282,24 @@ end
 
 types.include = types.directive({
   name = 'include',
+  description = 'Directs the executor to include this field or fragment only when the `if` argument is true.',
   arguments = {
-    ['if'] = types.boolean.nonNull
+    ['if'] = { kind = types.boolean.nonNull, description = 'Included when true.'}
   },
-  onOperation = false,
-  onFragment = true,
-  onField = true
+  onField = true,
+  onFragmentSpread = true,
+  onInlineFragment = true
 })
 
 types.skip = types.directive({
   name = 'skip',
+  description = 'Directs the executor to skip this field or fragment when the `if` argument is true.',
   arguments = {
-    ['if'] = types.boolean.nonNull
+    ['if'] = { kind = types.boolean.nonNull, description = 'Skipped when true.' }
   },
-  onOperation = false,
-  onFragment = true,
-  onField = true
+  onField = true,
+  onFragmentSpread = true,
+  onInlineFragment = true
 })
 
 return types

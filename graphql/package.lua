@@ -1,6 +1,6 @@
 return {
   name = 'bjornbytes/graphql',
-  version = '0.0.1',
+  version = '0.0.2',
   description = 'Lua GraphQL implementation',
   license = 'MIT',
   author = { url = 'https://github.com/bjornbytes' },

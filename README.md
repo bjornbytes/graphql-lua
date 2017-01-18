@@ -5,10 +5,14 @@ Lua implementation of GraphQL.
 
 Installation
 ------------
-1. Using luvit  
-`lit install bjornbytes/graphql`
-2. Using luarocks  
-`luarocks install graphql`
+
+1. Using luvit
+
+        lit install bjornbytes/graphql
+    
+2. Using luarocks
+
+        luarocks install graphql
 
 Example
 ---

@@ -66,7 +66,7 @@ function util.coerceValue(node, schemaType, variables)
     end
 
     return util.map(node.values, function(value)
-      return util.coerceValue(node.values[i], schemaType.ofType, variables)
+      return util.coerceValue(value, schemaType.ofType, variables)
     end)
   end
 

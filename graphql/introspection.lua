@@ -47,7 +47,7 @@ __Schema = types.object({
       },
 
       subscriptionType = {
-        description = 'If this server supports subscriptions, the type that subscription operations will be rooted at',
+        description = 'If this server supports subscriptions, the type that subscription operations will be rooted at.',
         kind = __Type,
         resolve = function(schema)
           return schema:getSubscriptionType()

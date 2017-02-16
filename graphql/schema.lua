@@ -26,6 +26,7 @@ function schema.create(config)
 
   self:generateTypeMap(self.query)
   self:generateTypeMap(self.mutation)
+  self:generateTypeMap(self.subscription)
   self:generateTypeMap(introspection.__Schema)
   self:generateDirectiveMap()
 
@@ -97,6 +98,10 @@ end
 
 function schema:getMutationType()
   return self.mutation
+end
+
+function schema:getSubscriptionType()
+  return self.subscription
 end
 
 function schema:getTypeMap()

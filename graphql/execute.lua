@@ -175,7 +175,7 @@ local function completeValue(fieldType, result, subSelections, context)
       values[i] = completeValue(innerType, value, subSelections, context)
     end
 
-    return values
+    return next(values) and values or context.schema.__emptyList
   end
 
   if fieldTypeName == 'Scalar' or fieldTypeName == 'Enum' then
@@ -183,7 +183,8 @@ local function completeValue(fieldType, result, subSelections, context)
   end
 
   if fieldTypeName == 'Object' then
-    return evaluateSelections(fieldType, result, subSelections, context)
+    local fields = evaluateSelections(fieldType, result, subSelections, context)
+    return next(fields) and fields or context.schema.__emptyObject
   elseif fieldTypeName == 'Interface' or fieldTypeName == 'Union' then
     local objectType = fieldType.resolveType(result)
     return evaluateSelections(objectType, result, subSelections, context)

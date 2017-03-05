@@ -4,6 +4,26 @@ local util = require(path .. '.util')
 
 local __Schema, __Directive, __DirectiveLocation, __Type, __Field, __InputValue,__EnumValue, __TypeKind
 
+local function resolveArgs(field)
+  local function transformArg(arg, name)
+    if arg.__type then
+      return { kind = arg, name = name }
+    elseif arg.name then
+      return arg
+    else
+      local result = { name = name }
+
+      for k, v in pairs(arg) do
+        result[k] = v
+      end
+
+      return result
+    end
+  end
+
+  return util.values(util.map(field.arguments or {}, transformArg))
+end
+
 __Schema = types.object({
   name = '__Schema',
 
@@ -95,29 +115,7 @@ __Directive = types.object({
 
       args = {
         kind = types.nonNull(types.list(types.nonNull(__InputValue))),
-        resolve = function(field)
-          local args = {}
-          local transform = function(a, n)
-            if a.__type then
-              return { kind = a, name = n }
-            else
-              if a.name then return a end
-
-              local r = { name = n }
-              for k,v in pairs(a) do
-                r[k] = v
-              end
-
-              return r
-            end
-          end
-
-          for k, v in pairs(field.arguments or {}) do
-            table.insert(args, transform(v, k))
-          end
-
-          return args
-        end
+        resolve = resolveArgs
       }
     }
   end
@@ -290,27 +288,8 @@ __Field = types.object({
       description = types.string,
 
       args = {
-        -- kind = types.list(__InputValue),
         kind = types.nonNull(types.list(types.nonNull(__InputValue))),
-        resolve = function(field)
-          return util.map(field.arguments or {}, function(a, n)
-            if a.__type then
-              return { kind = a, name = n }
-            else
-              if not a.name then
-                local r = { name = n }
-
-                for k,v in pairs(a) do
-                  r[k] = v
-                end
-
-                return r
-              else
-                return a
-              end
-            end
-          end)
-        end
+        resolve = resolveArgs
       },
 
       type = {

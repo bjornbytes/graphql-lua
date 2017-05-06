@@ -5,6 +5,9 @@ local introspection = require(path .. '.introspection')
 local schema = {}
 schema.__index = schema
 
+schema.__emptyList = {}
+schema.__emptyObject = {}
+
 function schema.create(config)
   assert(type(config.query) == 'table', 'must provide query object')
   assert(not config.mutation or type(config.mutation) == 'table', 'mutation must be a table if provided')

@@ -59,8 +59,8 @@ local visitors = {
       rules.variablesHaveCorrectType,
       rules.variableDefaultValuesHaveCorrectType,
       exit = {
-        rules.variablesAreUsed,
-        rules.variablesAreDefined
+        rules.variablesAreDefined,
+        rules.variablesAreUsed
       }
     }
   },

@@ -116,6 +116,19 @@ __Directive = types.object({
       args = {
         kind = types.nonNull(types.list(types.nonNull(__InputValue))),
         resolve = resolveArgs
+      },
+
+      onOperation = {
+        kind = types.boolean,
+        defaultValue = false
+      },
+      onFragment = {
+        kind = types.boolean,
+        defaultValue = false
+      },
+      onField = {
+        kind = types.boolean,
+        defaultValue = false
       }
     }
   end
@@ -230,7 +243,7 @@ __Type = types.object({
         kind = types.list(types.nonNull(__Type)),
         resolve = function(kind)
           if kind.__type == 'Object' then
-            return kind.interfaces
+            return kind.interface or {}
           end
         end
       },

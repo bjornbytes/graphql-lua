@@ -407,10 +407,17 @@ function rules.variablesAreUsed(node, context)
 end
 
 function rules.variablesAreDefined(node, context)
-  if context.variableReferences then
+  local _cv = context.variableReferences
+  if _cv then
     local variableMap = {}
+    local _vn
     for _, definition in ipairs(node.variableDefinitions or {}) do
-      variableMap[definition.variable.name.value] = true
+      _vn = definition.variable.name.value
+      variableMap[_vn] = true
+      -- TODO Maybe danger
+      if not _cv[_vn] then
+        _cv[_vn] = true
+      end
     end
 
     for variable in pairs(context.variableReferences) do

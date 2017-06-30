@@ -6,6 +6,12 @@ function util.map(t, fn)
   return res
 end
 
+function util.map_input(t, fn)
+  local res = {}
+  for _i, field in pairs(t) do res[field.name] = fn(field) end
+  return res
+end
+
 function util.find(t, fn)
   local res = {}
   for k, v in pairs(t) do
@@ -75,7 +81,8 @@ function util.coerceValue(node, schemaType, variables)
       error('Expected an input object')
     end
 
-    return util.map(node.values, function(field)
+    -- You can get InputTypes`s parameters now, just as input.name
+    return util.map_input(node.values, function(field)
       if not schemaType.fields[field.name] then
         error('Unknown input object field "' .. field.name .. '"')
       end

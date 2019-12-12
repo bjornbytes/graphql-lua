@@ -107,7 +107,8 @@ Running tests
 ---
 
 ```lua
-lua tests/runner.lua
+tarantoolctl rocks make -- optionally
+tarantool tests/runner.lua
 ```
 
 License

@@ -1,18 +1,15 @@
-GraphQL Lua [![Join the chat at https://gitter.im/bjornbytes/graphql-lua](https://badges.gitter.im/bjornbytes/graphql-lua.svg)](https://gitter.im/bjornbytes/graphql-lua?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-===
+Lua implementation of GraphQL for Tarantool
+===========================================
 
-Lua implementation of GraphQL.
+Lua implementation of GraphQL for Tarantool. It is based on [graphql-lua](https://github.com/bjornbytes/graphql-lua).
+
 
 Installation
 ------------
 
-1. Using luvit
-
-        lit install bjornbytes/graphql
-    
-2. Using luarocks
-
-        luarocks install graphql
+```bash
+tarantoolctl rocks install https://raw.githubusercontent.com/tarantool/graphql/master/graphql-scm-1.rockspec
+```
 
 Example
 ---
@@ -106,8 +103,9 @@ Status
 Running tests
 ---
 
-```lua
-lua tests/runner.lua
+```bash
+tarantoolctl rocks make # optionally
+tarantool tests/runner.lua
 ```
 
 License

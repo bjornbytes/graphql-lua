@@ -1,20 +1,20 @@
 package = 'graphql'
-version = '0.0.2-1'
+version = 'scm-1'
 
 source = {
-  url = 'git://github.com/bjornbytes/graphql-lua.git'
+  url = 'git://github.com/tarantool/graphql.git'
 }
 
 description = {
-  summary = 'Lua GraphQL implementation',
-  homepage = 'https://github.com/bjornbytes/graphql-lua',
-  maintainer = 'https://github.com/bjornbytes',
+  summary = 'GraphQL implementation for Tarantool',
+  homepage = 'https://github.com/tarantool/graphql',
+  maintainer = 'https://github.com/tarantool',
   license = 'MIT'
 }
 
 dependencies = {
   'lua >= 5.1',
-  'lpeg'
+  'lulpeg',
 }
 
 build = {

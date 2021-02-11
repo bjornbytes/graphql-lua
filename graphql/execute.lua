@@ -131,8 +131,7 @@ local function collectFields(objectType, selections, visitedFragments, result, c
     if selection.kind == 'field' then
       if shouldIncludeNode(selection, context) then
         local name = getFieldResponseKey(selection)
-        result[name] = result[name] or {}
-        table.insert(result[name], selection)
+        table.insert(result, {name = name, selection = selection})
       end
     elseif selection.kind == 'inlineFragment' then
       if shouldIncludeNode(selection, context) and doesFragmentApply(selection, objectType, context) then
@@ -250,11 +249,15 @@ local function getFieldEntry(objectType, object, fields, context)
 end
 
 evaluateSelections = function(objectType, object, selections, context)
-  local groupedFieldSet = collectFields(objectType, selections, {}, {}, context)
-
-  return util.map(groupedFieldSet, function(fields)
-    return getFieldEntry(objectType, object, fields, context)
-  end)
+  local result = {}
+  local fields = collectFields(objectType, selections, {}, {}, context)
+  for _, field in ipairs(fields) do
+    assert(result[field.name] == nil,
+      'two selections into the one field: ' .. field.name)
+    result[field.name] = getFieldEntry(objectType, object, {field.selection},
+      context)
+  end
+  return result
 end
 
 local function execute(schema, tree, rootValue, variables, operationName)
@@ -267,5 +270,6 @@ local function execute(schema, tree, rootValue, variables, operationName)
 
   return evaluateSelections(rootType, rootValue, context.operation.selectionSet.selections, context)
 end
+
 
 return {execute=execute}

@@ -17,7 +17,7 @@ local function checkVariableValue(variableName, value, variableType)
   if isNonNull then
     variableType = types.nullable(variableType)
     if value == nil then
-      error(('Variable "%s" expected to be non-null'):format(variableName))
+      error(('Variable %q expected to be non-null'):format(variableName))
     end
   end
 
@@ -32,11 +32,11 @@ local function checkVariableValue(variableName, value, variableType)
 
   if isList then
     if type(value) ~= 'table' then
-      error(('Variable "%s" for a List must be a Lua ' ..
+      error(('Variable %q for a List must be a Lua ' ..
         'table, got %s'):format(variableName, type(value)))
     end
     if not util.is_array(value) then
-      error(('Variable "%s" for a List must be an array, ' ..
+      error(('Variable %q for a List must be an array, ' ..
         'got map'):format(variableName))
     end
     assert(variableType.ofType ~= nil, 'variableType.ofType must not be nil')
@@ -49,7 +49,7 @@ local function checkVariableValue(variableName, value, variableType)
 
   if isInputObject then
     if type(value) ~= 'table' then
-      error(('Variable "%s" for the InputObject "%s" must ' ..
+      error(('Variable %q for the InputObject %q must ' ..
         'be a Lua table, got %s'):format(variableName, variableType.name,
         type(value)))
     end
@@ -66,13 +66,13 @@ local function checkVariableValue(variableName, value, variableType)
     for fieldName, _ in pairs(fieldNameSet) do
       local fieldValue = value[fieldName]
       if type(fieldName) ~= 'string' then
-        error(('Field key of the variable "%s" for the ' ..
-          'InputObject "%s" must be a string, got %s'):format(variableName,
+        error(('Field key of the variable %q for the ' ..
+          'InputObject %q must be a string, got %s'):format(variableName,
           variableType.name, type(fieldName)))
       end
       if type(variableType.fields[fieldName]) == 'nil' then
-        error(('Unknown field "%s" of the variable "%s" ' ..
-          'for the InputObject "%s"'):format(fieldName, variableName,
+        error(('Unknown field %q of the variable %q ' ..
+          'for the InputObject %q'):format(fieldName, variableName,
           variableType.name))
       end
 
@@ -90,27 +90,27 @@ local function checkVariableValue(variableName, value, variableType)
           return
         end
       end
-      error(('Wrong variable "%s" for the Enum "%s" with value %s'):format(
+      error(('Wrong variable %q for the Enum "%s" with value %q'):format(
         variableName, variableType.name, value))
   end
 
   if isScalar then
     check(variableType.isValueOfTheType, 'isValueOfTheType', 'function')
     if not variableType.isValueOfTheType(value) then
-      error(('Wrong variable "%s" for the Scalar "%s"'):format(
+      error(('Wrong variable %q for the Scalar %q'):format(
         variableName, variableType.name))
     end
     return
   end
 
-  error(('Unknown type of the variable "%s"'):format(variableName))
+  error(('Unknown type of the variable %q'):format(variableName))
 end
 
 local function validate_variables(context)
   -- check that all variable values have corresponding variable declaration
   for variableName, _ in pairs(context.variables or {}) do
     if context.variableTypes[variableName] == nil then
-      error(('There is no declaration for the variable "%s"')
+      error(('There is no declaration for the variable %q')
         :format(variableName))
     end
   end

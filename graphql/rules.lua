@@ -1,7 +1,6 @@
 local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
-local schema = require(path .. '.schema')
 local introspection = require(path .. '.introspection')
 
 local function getParentField(context, name, count)

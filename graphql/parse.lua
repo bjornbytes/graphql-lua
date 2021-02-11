@@ -1,3 +1,4 @@
+_G._ENV = rawget(_G, "_ENV") -- to get lulpeg work under strict mode
 local lpeg = require 'lulpeg'
 local P, R, S, V = lpeg.P, lpeg.R, lpeg.S, lpeg.V
 local C, Ct, Cmt, Cg, Cc, Cf, Cmt = lpeg.C, lpeg.Ct, lpeg.Cmt, lpeg.Cg, lpeg.Cc, lpeg.Cf, lpeg.Cmt
@@ -310,9 +311,11 @@ local function stripComments(str)
   end):sub(1, -2)
 end
 
-return function(str)
+local function parse(str)
   assert(type(str) == 'string', 'parser expects a string')
   str = stripComments(str)
   line, lastLinePos = 1, 1
   return graphQL:match(str) or error('Syntax error near line ' .. line, 2)
 end
+
+return {parse=parse}

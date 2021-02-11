@@ -5,9 +5,6 @@ local introspection = require(path .. '.introspection')
 local schema = {}
 schema.__index = schema
 
-schema.__emptyList = {}
-schema.__emptyObject = {}
-
 function schema.create(config)
   assert(type(config.query) == 'table', 'must provide query object')
   assert(not config.mutation or type(config.mutation) == 'table', 'mutation must be a table if provided')
@@ -29,7 +26,6 @@ function schema.create(config)
 
   self:generateTypeMap(self.query)
   self:generateTypeMap(self.mutation)
-  self:generateTypeMap(self.subscription)
   self:generateTypeMap(introspection.__Schema)
   self:generateDirectiveMap()
 
@@ -40,6 +36,8 @@ function schema:generateTypeMap(node)
   if not node or (self.typeMap[node.name] and self.typeMap[node.name] == node) then return end
 
   if node.__type == 'NonNull' or node.__type == 'List' then
+    -- HACK: resolve type names to real types
+    node.ofType = types.resolve(node.ofType)
     return self:generateTypeMap(node.ofType)
   end
 
@@ -51,7 +49,14 @@ function schema:generateTypeMap(node)
   self.typeMap[node.name] = node
 
   if node.__type == 'Object' and node.interfaces then
-    for _, interface in ipairs(node.interfaces) do
+    for idx, interface in ipairs(node.interfaces) do
+      -- BEGIN_HACK: resolve type names to real types
+      if type(interface) == 'string' then
+        interface = types.resolve(interface)
+        node.interfaces[idx] = interface
+      end
+      -- END_HACK: resolve type names to real types
+
       self:generateTypeMap(interface)
       self.interfaceMap[interface.name] = self.interfaceMap[interface.name] or {}
       self.interfaceMap[interface.name][node] = node
@@ -62,12 +67,25 @@ function schema:generateTypeMap(node)
     for fieldName, field in pairs(node.fields) do
       if field.arguments then
         for name, argument in pairs(field.arguments) do
+          -- BEGIN_HACK: resolve type names to real types
+          if type(argument) == 'string' then
+            argument = types.resolve(argument)
+            field.arguments[name] = argument
+          end
+
+          if type(argument.kind) == 'string' then
+            argument.kind = types.resolve(argument.kind)
+          end
+          -- END_HACK: resolve type names to real types
+
           local argumentType = argument.__type and argument or argument.kind
           assert(argumentType, 'Must supply type for argument "' .. name .. '" on "' .. fieldName .. '"')
           self:generateTypeMap(argumentType)
         end
       end
 
+      -- HACK: resolve type names to real types
+      field.kind = types.resolve(field.kind)
       self:generateTypeMap(field.kind)
     end
   end
@@ -101,10 +119,6 @@ end
 
 function schema:getMutationType()
   return self.mutation
-end
-
-function schema:getSubscriptionType()
-  return self.subscription
 end
 
 function schema:getTypeMap()

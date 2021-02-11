@@ -36,7 +36,8 @@ local function shouldIncludeNode(selection, context)
 
       if not ifArgument then return end
 
-      return util.coerceValue(ifArgument.value, _type.arguments['if'], context.variables)
+      return util.coerceValue(ifArgument.value, _type.arguments['if'],
+                              context.variables, context.defaultValues)
     end
 
     if isDirectiveActive('skip', types.skip) then return false end
@@ -88,7 +89,8 @@ local function buildContext(schema, tree, rootValue, variables, operationName)
     rootValue = rootValue,
     variables = variables,
     operation = nil,
-    fragmentMap = {}
+    fragmentMap = {},
+    defaultValues = {},
   }
 
   for _, definition in ipairs(tree.definitions) do
@@ -99,6 +101,14 @@ local function buildContext(schema, tree, rootValue, variables, operationName)
 
       if not operationName or definition.name.value == operationName then
         context.operation = definition
+      end
+
+      for _, variableDefinition in ipairs(definition.variableDefinitions or {}) do
+          if variableDefinition.defaultValue ~= nil then
+              context.defaultValues[variableDefinition.variable.name.value] =
+                  variableDefinition.defaultValue.value
+
+          end
       end
     elseif definition.kind == 'fragmentDefinition' then
       context.fragmentMap[definition.name.value] = definition
@@ -175,7 +185,7 @@ local function completeValue(fieldType, result, subSelections, context)
       values[i] = completeValue(innerType, value, subSelections, context)
     end
 
-    return next(values) and values or context.schema.__emptyList
+    return values
   end
 
   if fieldTypeName == 'Scalar' or fieldTypeName == 'Enum' then
@@ -183,8 +193,7 @@ local function completeValue(fieldType, result, subSelections, context)
   end
 
   if fieldTypeName == 'Object' then
-    local fields = evaluateSelections(fieldType, result, subSelections, context)
-    return next(fields) and fields or context.schema.__emptyObject
+    return evaluateSelections(fieldType, result, subSelections, context)
   elseif fieldTypeName == 'Interface' or fieldTypeName == 'Union' then
     local objectType = fieldType.resolveType(result)
     return evaluateSelections(objectType, result, subSelections, context)
@@ -210,7 +219,15 @@ local function getFieldEntry(objectType, object, fields, context)
 
   local arguments = util.map(fieldType.arguments or {}, function(argument, name)
     local supplied = argumentMap[name] and argumentMap[name].value
-    return supplied and util.coerceValue(supplied, argument, context.variables) or argument.defaultValue
+
+    local value = supplied and util.coerceValue(supplied, argument,
+                                                context.variables,
+                                                context.defaultValues)
+    if value ~= nil then
+      return value
+    end
+
+    return argument.defaultValue
   end)
 
   local info = {
@@ -222,7 +239,8 @@ local function getFieldEntry(objectType, object, fields, context)
     fragments = context.fragmentMap,
     rootValue = context.rootValue,
     operation = context.operation,
-    variableValues = context.variables
+    variableValues = context.variables,
+    defaultValues = context.defaultValues,
   }
 
   local resolvedObject = (fieldType.resolve or defaultResolver)(object, arguments, info)
@@ -239,7 +257,7 @@ evaluateSelections = function(objectType, object, selections, context)
   end)
 end
 
-return function(schema, tree, rootValue, variables, operationName)
+local function execute(schema, tree, rootValue, variables, operationName)
   local context = buildContext(schema, tree, rootValue, variables, operationName)
   local rootType = schema[context.operation.operation]
 
@@ -249,3 +267,5 @@ return function(schema, tree, rootValue, variables, operationName)
 
   return evaluateSelections(rootType, rootValue, context.operation.selectionSet.selections, context)
 end
+
+return {execute=execute}

@@ -5,23 +5,23 @@ local util = require(path .. '.util')
 local __Schema, __Directive, __DirectiveLocation, __Type, __Field, __InputValue,__EnumValue, __TypeKind
 
 local function resolveArgs(field)
-  local function transformArg(arg, name)
-    if arg.__type then
-      return { kind = arg, name = name }
-    elseif arg.name then
-      return arg
-    else
-      local result = { name = name }
+    local function transformArg(arg, name)
+        if arg.__type then
+            return { kind = arg, name = name }
+        elseif arg.name then
+            return arg
+        else
+            local result = { name = name }
 
-      for k, v in pairs(arg) do
-        result[k] = v
-      end
+            for k, v in pairs(arg) do
+                result[k] = v
+            end
 
-      return result
+            return result
+        end
     end
-  end
 
-  return util.values(util.map(field.arguments or {}, transformArg))
+    return util.values(util.map(field.arguments or {}, transformArg))
 end
 
 __Schema = types.object({
@@ -58,21 +58,22 @@ __Schema = types.object({
         end
       },
 
+      subscriptionType = {
+        description = 'If this server supports mutation, the type that mutation operations will be rooted at.',
+        kind = __Type,
+        resolve = function(_)
+            return nil
+        end
+      },
+
+
       directives = {
         description = 'A list of all directives supported by this server.',
         kind = types.nonNull(types.list(types.nonNull(__Directive))),
         resolve = function(schema)
           return schema.directives
         end
-      },
-
-      subscriptionType = {
-        description = 'If this server supports subscriptions, the type that subscription operations will be rooted at.',
-        kind = __Type,
-        resolve = function(schema)
-          return schema:getSubscriptionType()
-        end
-       }
+      }
     }
   end
 })
@@ -230,7 +231,7 @@ __Type = types.object({
         kind = types.list(types.nonNull(__Type)),
         resolve = function(kind)
           if kind.__type == 'Object' then
-            return kind.interfaces
+            return kind.interfaces or {}
           end
         end
       },
@@ -346,7 +347,7 @@ __InputValue = types.object({
 __EnumValue = types.object({
   name = '__EnumValue',
 
-  description = util.trim [[
+  description = [[
     One possible value for a given Enum. Enum values are unique values, not
     a placeholder for a string or numeric value. However an Enum value is
     returned in a JSON response as a string.

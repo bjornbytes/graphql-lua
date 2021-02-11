@@ -20,14 +20,13 @@ dependencies = {
 build = {
   type = 'builtin',
   modules = {
-    ['graphql'] = 'graphql/init.lua',
-    ['graphql.parse'] = 'graphql/parse.lua',
-    ['graphql.types'] = 'graphql/types.lua',
-    ['graphql.introspection'] = 'graphql/introspection.lua',
-    ['graphql.schema'] = 'graphql/schema.lua',
-    ['graphql.validate'] = 'graphql/validate.lua',
-    ['graphql.rules'] = 'graphql/rules.lua',
     ['graphql.execute'] = 'graphql/execute.lua',
-    ['graphql.util'] = 'graphql/util.lua'
+    ['graphql.introspection'] = 'graphql/introspection.lua',
+    ['graphql.parse'] = 'graphql/parse.lua',
+    ['graphql.rules'] = 'graphql/rules.lua',
+    ['graphql.schema'] = 'graphql/schema.lua',
+    ['graphql.types'] = 'graphql/types.lua',
+    ['graphql.util'] = 'graphql/util.lua',
+    ['graphql.validate'] = 'graphql/validate.lua',
   }
 }

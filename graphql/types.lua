@@ -1,7 +1,13 @@
 local path = (...):gsub('%.[^%.]+$', '')
 local util = require(path .. '.util')
+local format = string.format
 
+local registered_types = {}
 local types = {}
+
+local function get_env()
+    return registered_types
+end
 
 function types.nonNull(kind)
   assert(kind, 'Must provide a type')
@@ -69,6 +75,8 @@ function types.object(config)
 
   instance.nonNull = types.nonNull(instance)
 
+  get_env()[config.name] = instance
+
   return instance
 end
 
@@ -95,6 +103,8 @@ function types.interface(config)
   }
 
   instance.nonNull = types.nonNull(instance)
+
+  get_env()[config.name] = instance
 
   return instance
 end
@@ -149,6 +159,8 @@ function types.enum(config)
 
   instance.nonNull = types.nonNull(instance)
 
+  get_env()[config.name] = instance
+
   return instance
 end
 
@@ -163,6 +175,8 @@ function types.union(config)
   }
 
   instance.nonNull = types.nonNull(instance)
+
+  get_env()[config.name] = instance
 
   return instance
 end
@@ -186,6 +200,8 @@ function types.inputObject(config)
     fields = fields
   }
 
+  get_env()[config.name] = instance
+
   return instance
 end
 
@@ -199,14 +215,40 @@ local coerceInt = function(value)
   end
 end
 
+local coerceLong = function(value)
+  value = tonumber64(value)
+
+  if type(value) == 'cdata' then
+    return value
+  end
+
+  if not value then return end
+
+  if value == value and value < 2 ^ 52 and value >= -2 ^ 52 then
+      return value < 0 and math.ceil(value) or math.floor(value)
+  end
+end
+
 types.int = types.scalar({
   name = 'Int',
-  description = "The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. ", 
+  description = "The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values from -(2^31) to 2^31 - 1, inclusive. ",
   serialize = coerceInt,
   parseValue = coerceInt,
   parseLiteral = function(node)
     if node.kind == 'int' then
       return coerceInt(node.value)
+    end
+  end
+})
+
+types.long = types.scalar({
+  name = 'Long',
+  description = "The `Long` scalar type represents non-fractional signed whole numeric values. Long can represent values from -(2^52) to 2^52 - 1, inclusive. ",
+  serialize = coerceLong,
+  parseValue = coerceLong,
+  parseLiteral = function(node)
+    if node.kind == 'long' or node.kind == 'int' then
+      return coerceLong(node.value)
     end
   end
 })
@@ -301,5 +343,23 @@ types.skip = types.directive({
   onFragmentSpread = true,
   onInlineFragment = true
 })
+
+types.resolve = function(type_name_or_obj)
+    if type(type_name_or_obj) == 'table' then
+        return type_name_or_obj
+    end
+
+    if type(type_name_or_obj) ~= 'string' then
+        error('types.resolve() expects type to be string or table')
+    end
+
+    local type_obj = registered_types[type_name_or_obj]
+
+    if type_obj == nil then
+        error(format("No type found named '%s'", type_name_or_obj))
+    end
+
+    return type_obj
+end
 
 return types

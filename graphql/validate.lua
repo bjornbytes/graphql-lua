@@ -220,7 +220,7 @@ local visitors = {
 
   fragmentDefinition = {
     enter = function(node, context)
-      kind = context.schema:getType(node.typeCondition.name.value) or false
+      local kind = context.schema:getType(node.typeCondition.name.value) or false
       table.insert(context.objects, kind)
     end,
 
@@ -269,7 +269,7 @@ local visitors = {
   }
 }
 
-return function(schema, tree)
+local function validate(schema, tree)
   local context = {
     schema = schema,
     fragmentMap = {},
@@ -318,3 +318,5 @@ return function(schema, tree)
 
   return visit(tree)
 end
+
+return {validate=validate}

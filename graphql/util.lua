@@ -45,11 +45,12 @@ function util.trim(s)
   return s:gsub('^%s+', ''):gsub('%s$', ''):gsub('%s%s+', ' ')
 end
 
-function util.coerceValue(node, schemaType, variables)
+function util.coerceValue(node, schemaType, variables, defaultValues)
   variables = variables or {}
+  defaultValues = defaultValues or {}
 
   if schemaType.__type == 'NonNull' then
-    return util.coerceValue(node, schemaType.ofType, variables)
+    return util.coerceValue(node, schemaType.ofType, variables, defaultValues)
   end
 
   if not node then
@@ -57,7 +58,15 @@ function util.coerceValue(node, schemaType, variables)
   end
 
   if node.kind == 'variable' then
-    return variables[node.name.value]
+      if variables[node.name.value] ~= nil then
+          return variables[node.name.value]
+      elseif defaultValues[node.name.value] ~= nil then
+          return defaultValues[node.name.value]
+      else
+          return nil
+      --else -- TODO Validation pass variables and defaultValues to validation mechanism
+      --    error(('Value %s is unspecified'):format(node.name.value))
+      end
   end
 
   if schemaType.__type == 'List' then
@@ -66,7 +75,7 @@ function util.coerceValue(node, schemaType, variables)
     end
 
     return util.map(node.values, function(value)
-      return util.coerceValue(value, schemaType.ofType, variables)
+      return util.coerceValue(value, schemaType.ofType, variables, defaultValues)
     end)
   end
 
@@ -80,7 +89,8 @@ function util.coerceValue(node, schemaType, variables)
         error('Unknown input object field "' .. field.name .. '"')
       end
 
-      return util.coerceValue(field.value, schemaType.fields[field.name].kind, variables)
+      return util.coerceValue(field.value, schemaType.fields[field.name].kind,
+                              variables, defaultValues)
     end)
   end
 
@@ -97,11 +107,12 @@ function util.coerceValue(node, schemaType, variables)
   end
 
   if schemaType.__type == 'Scalar' then
-    if schemaType.parseLiteral(node) == nil then
+    local parsed = schemaType.parseLiteral(node)
+    if parsed == nil then
       error('Could not coerce "' .. tostring(node.value) .. '" to "' .. schemaType.name .. '"')
     end
 
-    return schemaType.parseLiteral(node)
+    return parsed
   end
 end
 

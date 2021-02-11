@@ -273,9 +273,12 @@ local function getFieldEntry(objectType, object, fields, context)
     defaultValues = context.defaultValues,
   }
 
-  local resolvedObject = (fieldType.resolve or defaultResolver)(object, arguments, info)
-  local subSelections = mergeSelectionSets(fields)
+  local resolvedObject, err = (fieldType.resolve or defaultResolver)(object, arguments, info)
+  if err ~= nil then
+    error(err)
+  end
 
+  local subSelections = mergeSelectionSets(fields)
   return completeValue(fieldType.kind, resolvedObject, subSelections, context,
     {fieldName = fieldName}
   )

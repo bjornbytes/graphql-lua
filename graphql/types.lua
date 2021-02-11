@@ -235,7 +235,7 @@ end
 
 types.int = types.scalar({
   name = 'Int',
-  description = "The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values from -(2^31) to 2^31 - 1, inclusive. ",
+  description = "The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values from -(2^31) to 2^31 - 1, inclusive.",
   serialize = coerceInt,
   parseValue = coerceInt,
   parseLiteral = function(node)
@@ -247,7 +247,7 @@ types.int = types.scalar({
 
 types.long = types.scalar({
   name = 'Long',
-  description = "The `Long` scalar type represents non-fractional signed whole numeric values. Long can represent values from -(2^52) to 2^52 - 1, inclusive. ",
+  description = "The `Long` scalar type represents non-fractional signed whole numeric values. Long can represent values from -(2^52) to 2^52 - 1, inclusive.",
   serialize = coerceLong,
   parseValue = coerceLong,
   parseLiteral = function(node)

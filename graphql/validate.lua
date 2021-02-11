@@ -1,6 +1,7 @@
 local path = (...):gsub('%.[^%.]+$', '')
 local rules = require(path .. '.rules')
 local introspection = require(path .. '.introspection')
+local util = require(path .. '.util')
 
 local function getParentField(context, name, count)
   if introspection.fieldMap[name] then return introspection.fieldMap[name] end
@@ -257,7 +258,38 @@ local visitors = {
       end
     end,
 
+    children = function(node)
+      return util.map(node.value.values or {}, function(value)
+        if value.value ~= nil then
+          return value.value
+        end
+        return value
+      end)
+    end,
+
     rules = { rules.uniqueInputObjectFields }
+  },
+
+  inputObject = {
+    children = function(node)
+      return util.map(node.values or {}, function(value)
+        return value.value
+      end)
+    end,
+
+    rules = { rules.uniqueInputObjectFields }
+  },
+
+  list = {
+    children = function(node)
+      return node.values
+    end,
+  },
+
+  variable = {
+    enter = function(node, context)
+      context.variableReferences[node.name.value] = true
+    end
   },
 
   directive = {
@@ -277,7 +309,6 @@ local function validate(schema, tree)
     objects = {},
     currentOperation = nil,
     variableReferences = nil,
-    skipVariableUseCheck = {}, -- operation name -> boolean
   }
 
   local function visit(node)

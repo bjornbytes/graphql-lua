@@ -10,6 +10,10 @@ local function get_env()
     return registered_types
 end
 
+local function error(...)
+  return _G.error(..., 0)
+end
+
 local function initFields(kind, fields)
   assert(type(fields) == 'table', 'fields table must be provided')
 

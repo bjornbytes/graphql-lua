@@ -2,6 +2,10 @@ local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local introspection = require(path .. '.introspection')
 
+local function error(...)
+  return _G.error(..., 0)
+end
+
 local schema = {}
 schema.__index = schema
 

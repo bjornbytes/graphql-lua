@@ -3,6 +3,10 @@ local types = require(path .. '.types')
 local util = require(path .. '.util')
 local check = util.check
 
+local function error(...)
+  return _G.error(..., 0)
+end
+
 -- Traverse type more or less likewise util.coerceValue do.
 local function checkVariableValue(variableName, value, variableType)
   check(variableName, 'variableName', 'string')

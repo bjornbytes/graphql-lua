@@ -413,11 +413,6 @@ function rules.variableDefaultValuesHaveCorrectType(node, context)
 end
 
 function rules.variablesAreUsed(node, context)
-  local operationName = node.name and node.name.value or ''
-  if context.skipVariableUseCheck[operationName] then
-    return
-  end
-
   if node.variableDefinitions then
     for _, definition in ipairs(node.variableDefinitions) do
       local variableName = definition.variable.name.value

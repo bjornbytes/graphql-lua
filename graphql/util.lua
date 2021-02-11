@@ -1,6 +1,10 @@
 local ffi = require('ffi')
 local yaml = require('yaml').new({encode_use_tostring = true})
 
+local function error(...)
+  return _G.error(..., 0)
+end
+
 local function map(t, fn)
   local res = {}
   for k, v in pairs(t) do res[k] = fn(v, k) end

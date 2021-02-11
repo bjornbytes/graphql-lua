@@ -289,6 +289,9 @@ evaluateSelections = function(objectType, object, selections, context)
       'two selections into the one field: ' .. field.name)
     result[field.name] = getFieldEntry(objectType, object, {field.selection},
       context)
+    if result[field.name] == nil then
+        result[field.name] = box.NULL
+    end
   end
   return result
 end

@@ -84,11 +84,9 @@ function types.scalar(config)
   assert(type(config.name) == 'string', 'type name must be provided as a string')
   assert(type(config.serialize) == 'function', 'serialize must be a function')
   assert(type(config.isValueOfTheType) == 'function', 'isValueOfTheType must be a function')
-  if config.parseValue or config.parseLiteral then
-    assert(
-      type(config.parseValue) == 'function' and type(config.parseLiteral) == 'function',
-      'must provide both parseValue and parseLiteral to scalar type'
-    )
+  assert(type(config.parseLiteral) == 'function', 'parseLiteral must be a function')
+  if config.parseValue then
+    assert(type(config.parseValue) == 'function', 'parseValue must be a function')
   end
 
   local instance = {
@@ -257,6 +255,26 @@ local function isInt(value)
   return false
 end
 
+local function coerceInt(value)
+  if value ~= nil then
+    value = tonumber(value)
+    if not isInt(value) then return end
+  end
+
+  return value
+end
+
+types.int = types.scalar({
+  name = 'Int',
+  description = "The `Int` scalar type represents non-fractional signed whole numeric values. " ..
+                "Int can represent values from -(2^31) to 2^31 - 1, inclusive.",
+  serialize = coerceInt,
+  parseLiteral = function(node)
+    return coerceInt(node.value)
+  end,
+  isValueOfTheType = isInt,
+})
+
 -- The code from tarantool/checks.
 local function isLong(value)
   if type(value) == 'number' then
@@ -276,101 +294,97 @@ local function isLong(value)
   return false
 end
 
-local function coerceInt(value)
-  local value = tonumber(value)
-
-  if value == nil then return end
-  if not isInt(value) then return end
-
-  return value
-end
-
 local function coerceLong(value)
-  local value = tonumber64(value)
-
-  if value == nil then return end
-  if not isLong(value) then return end
+  if value ~= nil then
+    value = tonumber64(value)
+    if not isLong(value) then return end
+  end
 
   return value
 end
-
-types.int = types.scalar({
-  name = 'Int',
-  description = "The `Int` scalar type represents non-fractional signed whole numeric values. " ..
-          "Int can represent values from -(2^31) to 2^31 - 1, inclusive.",
-  serialize = coerceInt,
-  parseValue = coerceInt,
-  parseLiteral = function(node)
-    if node.kind == 'int' then
-      return coerceInt(node.value)
-    end
-  end,
-  isValueOfTheType = isInt,
-})
 
 types.long = types.scalar({
   name = 'Long',
   description = "The `Long` scalar type represents non-fractional signed whole numeric values. " ..
           "Long can represent values from -(2^52) to 2^52 - 1, inclusive.",
   serialize = coerceLong,
-  parseValue = coerceLong,
   parseLiteral = function(node)
-    if node.kind == 'long' or node.kind == 'int' then
-      return coerceLong(node.value)
-    end
+    return coerceLong(node.value)
   end,
   isValueOfTheType = isLong,
 })
 
+local function isFloat(value)
+  return type(value) == 'number'
+end
+
+local function coerceFloat(value)
+  if value ~= nil then
+    value = tonumber(value)
+    if not isFloat(value) then return end
+  end
+
+  return value
+end
+
 types.float = types.scalar({
   name = 'Float',
-  serialize = tonumber,
-  parseValue = tonumber,
+  serialize = coerceFloat,
   parseLiteral = function(node)
-    if node.kind == 'float' or node.kind == 'int' then
-      return tonumber(node.value)
-    end
+    return coerceFloat(node.value)
   end,
-  isValueOfTheType = function(value)
-    return type(value) == 'number'
-  end,
+  isValueOfTheType = isFloat,
 })
+
+local function isString(value)
+  return type(value) == 'string'
+end
+
+local function coerceString(value)
+  if value ~= nil then
+    value = tostring(value)
+    if not isString(value) then return end
+  end
+
+  return value
+end
 
 types.string = types.scalar({
   name = 'String',
   description = "The `String` scalar type represents textual data, represented as UTF-8 character sequences. " ..
           "The String type is most often used by GraphQL to represent free-form human-readable text.",
-  serialize = tostring,
-  parseValue = tostring,
+  serialize = coerceString,
   parseLiteral = function(node)
-    if node.kind == 'string' then
-      return node.value
-    end
+    return coerceString(node.value)
   end,
-  isValueOfTheType = function(value)
-    return type(value) == 'string'
-  end,
+  isValueOfTheType = isString,
 })
 
 local function toboolean(x)
   return (x and x ~= 'false') and true or false
 end
 
+local function isBoolean(value)
+  return type(value) == 'boolean'
+end
+
+local function coerceBoolean(value)
+  if value ~= nil then
+    value = toboolean(value)
+    if not isBoolean(value) then return end
+  end
+
+  return value
+end
+
 types.boolean = types.scalar({
   name = 'Boolean',
   description = "The `Boolean` scalar type represents `true` or `false`.",
-  serialize = toboolean,
-  parseValue = toboolean,
+  serialize = coerceBoolean,
   parseLiteral = function(node)
-    if node.kind == 'boolean' then
-      return toboolean(node.value)
-    else
-      return nil
-    end
+    return coerceBoolean(node.value)
   end,
-  isValueOfTheType = function(value)
-    return type(value) == 'boolean'
-  end,
+  isValueOfTheType = isBoolean,
 })
 
 --[[
@@ -381,14 +395,11 @@ however, defining it as an ID signifies that it is not intended to be human‐re
 --]]
 types.id = types.scalar({
   name = 'ID',
-  serialize = tostring,
-  parseValue = tostring,
+  serialize = coerceString,
   parseLiteral = function(node)
-    return node.kind == 'string' or node.kind == 'int' and node.value or nil
+    return coerceString(node.value)
   end,
-  isValueOfTheType = function(value)
-    return type(value) == 'string'
-  end,
+  isValueOfTheType = isString,
 })
 
 function types.directive(config)

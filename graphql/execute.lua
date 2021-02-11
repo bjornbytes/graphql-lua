@@ -189,6 +189,10 @@ local function completeValue(fieldType, result, subSelections, context, opts)
     return completedResult
   end
 
+  if fieldTypeName == 'Scalar' or fieldTypeName == 'Enum' then
+    return fieldType.serialize(result)
+  end
+
   if result == nil then
     return nil
   end
@@ -210,10 +214,6 @@ local function completeValue(fieldType, result, subSelections, context, opts)
     end
 
     return values
-  end
-
-  if fieldTypeName == 'Scalar' or fieldTypeName == 'Enum' then
-    return fieldType.serialize(result)
   end
 
   if fieldTypeName == 'Object' then
@@ -260,14 +260,10 @@ local function getFieldEntry(objectType, object, fields, context)
 
   local arguments = util.map(fieldType.arguments or {}, function(argument, name)
     local supplied = argumentMap[name] and argumentMap[name].value
-
-    supplied = util.coerceValue(supplied, argument, context.variables,
-      {strict_non_null = true})
-    if type(supplied) ~= 'nil' then
-      return supplied
-    end
-
-    return defaultValues[name]
+    return util.coerceValue(supplied, argument, context.variables, {
+      strict_non_null = true,
+      defaultValues = defaultValues,
+    })
   end)
 
   --[[

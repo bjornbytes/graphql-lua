@@ -84,14 +84,15 @@ function util.coerceValue(node, schemaType, variables, defaultValues)
       error('Expected an input object')
     end
 
-    return util.map(node.values, function(field)
+    local result = {}
+    for _, field in ipairs(node.values) do
       if not schemaType.fields[field.name] then
         error('Unknown input object field "' .. field.name .. '"')
       end
-
-      return util.coerceValue(field.value, schemaType.fields[field.name].kind,
-                              variables, defaultValues)
-    end)
+      result[field.name] = util.coerceValue(field.value, schemaType.fields[field.name].kind,
+                                            variables, defaultValues)
+    end
+    return result
   end
 
   if schemaType.__type == 'Enum' then

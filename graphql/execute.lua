@@ -91,6 +91,7 @@ local function buildContext(schema, tree, rootValue, variables, operationName)
     operation = nil,
     fragmentMap = {},
     defaultValues = {},
+    request_cache = {},
   }
 
   for _, definition in ipairs(tree.definitions) do
@@ -261,6 +262,7 @@ local function getFieldEntry(objectType, object, fields, context)
   arguments = setmetatable(arguments, {__index=positions})
 
   local info = {
+    context = context,
     fieldName = fieldName,
     fieldASTs = fields,
     returnType = fieldType.kind,

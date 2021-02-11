@@ -1,7 +1,7 @@
 _G._ENV = rawget(_G, "_ENV") -- to get lulpeg work under strict mode
 local lpeg = require 'lulpeg'
 local P, R, S, V = lpeg.P, lpeg.R, lpeg.S, lpeg.V
-local C, Ct, Cmt, Cg, Cc, Cf, Cmt = lpeg.C, lpeg.Ct, lpeg.Cmt, lpeg.Cg, lpeg.Cc, lpeg.Cf, lpeg.Cmt
+local C, Ct, Cmt = lpeg.C, lpeg.Ct, lpeg.Cmt
 
 local line
 local lastLinePos
@@ -261,8 +261,22 @@ local graphQL = P {
   definition = _'operation' + _'fragmentDefinition',
 
   operationType = C(P'query' + P'mutation'),
-  operation = (_'operationType' * ws * maybe(name) * maybe('variableDefinitions') * maybe('directives') * _'selectionSet' + _'selectionSet') / cOperation,
-  fragmentDefinition = 'fragment' * ws * fragmentName * ws * _'typeCondition' * ws * _'selectionSet' / cFragmentDefinition,
+  operation = (_'operationType'
+      * ws
+      * maybe(name)
+      * maybe('variableDefinitions')
+      * maybe('directives')
+      * _'selectionSet'
+      + _'selectionSet'
+    ) / cOperation,
+  fragmentDefinition = 'fragment'
+    * ws
+    * fragmentName
+    * ws
+    * _'typeCondition'
+    * ws
+    * _'selectionSet'
+    / cFragmentDefinition,
 
   selectionSet = ws * '{' * ws * list('selection') * ws * '}' / cSelectionSet,
   selection = ws * (_'field' + _'fragmentSpread' + _'inlineFragment'),
@@ -278,10 +292,20 @@ local graphQL = P {
   directive = '@' * name * maybe('arguments') / cDirective,
   directives = ws * list('directive', 1) * ws,
 
-  variableDefinition = ws * variable * ws * ':' * ws * _'type' * (ws * '=' * _'value') ^ -1 * comma * ws / cVariableDefinition,
+  variableDefinition = ws
+    * variable
+    * ws
+    * ':'
+    * ws
+    * _'type'
+    * (ws * '=' * _'value') ^ -1
+    * comma
+    * ws
+    / cVariableDefinition,
   variableDefinitions = ws * '(' * list('variableDefinition', 1) * ')',
 
-  value = ws * (variable + _'objectValue' + _'listValue' + enumValue + stringValue + booleanValue + floatValue + intValue),
+  value = ws
+    * (variable + _'objectValue' + _'listValue' + enumValue + stringValue + booleanValue + floatValue + intValue),
   listValue = '[' * list('value') * ']' / cList,
   objectFieldValue = ws * C(rawName) * ws * ':' * ws * _'value' * comma / cObjectField,
   objectValue = '{' * ws * list('objectFieldValue') * ws * '}' / cObject,
@@ -317,5 +341,6 @@ local function parse(str)
   line, lastLinePos = 1, 1
   return graphQL:match(str) or error('Syntax error near line ' .. line, 2)
 end
+
 
 return {parse=parse}

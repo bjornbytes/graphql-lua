@@ -27,7 +27,7 @@ local visitors = {
       end
     end,
 
-    children = function(node, context)
+    children = function(node, _)
       return node.definitions
     end,
 
@@ -41,7 +41,7 @@ local visitors = {
       context.variableReferences = {}
     end,
 
-    exit = function(node, context)
+    exit = function(_, context)
       table.remove(context.objects)
       context.currentOperation = nil
       context.variableReferences = nil
@@ -85,7 +85,7 @@ local visitors = {
       end
     end,
 
-    exit = function(node, context)
+    exit = function(_, context)
       table.remove(context.objects)
     end,
 
@@ -135,11 +135,11 @@ local visitors = {
       table.insert(context.objects, kind)
     end,
 
-    exit = function(node, context)
+    exit = function(_, context)
       table.remove(context.objects)
     end,
 
-    children = function(node, context)
+    children = function(node, _)
       if node.selectionSet then
         return {node.selectionSet}
       end
@@ -205,7 +205,7 @@ local visitors = {
       end
     end,
 
-    exit = function(node, context)
+    exit = function(_, context)
       table.remove(context.objects)
     end,
 
@@ -223,7 +223,7 @@ local visitors = {
       table.insert(context.objects, kind)
     end,
 
-    exit = function(node, context)
+    exit = function(_, context)
       table.remove(context.objects)
     end,
 
@@ -293,7 +293,7 @@ local visitors = {
   },
 
   directive = {
-    children = function(node, context)
+    children = function(node, _)
       return node.arguments
     end
   }

@@ -182,7 +182,7 @@ function rules.unambiguousSelections(node, context)
   validateSelectionSet(node, context.objects[#context.objects])
 end
 
-function rules.uniqueArgumentNames(node, context)
+function rules.uniqueArgumentNames(node, _)
   if node.arguments then
     local arguments = {}
     for _, argument in ipairs(node.arguments) do
@@ -222,7 +222,7 @@ function rules.requiredArgumentsPresent(node, context)
   end
 end
 
-function rules.uniqueFragmentNames(node, context)
+function rules.uniqueFragmentNames(node, _)
   local fragments = {}
   for _, definition in ipairs(node.definitions) do
     if definition.kind == 'fragmentDefinition' then
@@ -344,7 +344,7 @@ function rules.fragmentSpreadIsPossible(node, context)
   end
 end
 
-function rules.uniqueInputObjectFields(node, context)
+function rules.uniqueInputObjectFields(node, _)
   local function validateValue(value)
     if value.kind == 'listType' or value.kind == 'nonNullType' then
       return validateValue(value.type)

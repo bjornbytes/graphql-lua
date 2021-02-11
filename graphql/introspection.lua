@@ -238,7 +238,7 @@ __Type = types.object({
 
       possibleTypes = {
         kind = types.list(types.nonNull(__Type)),
-        resolve = function(kind, arguments, context)
+        resolve = function(kind, _, context)
           if kind.__type == 'Interface' or kind.__type == 'Union' then
             return context.schema:getPossibleTypes(kind)
           end

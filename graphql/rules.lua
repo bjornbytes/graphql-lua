@@ -67,7 +67,8 @@ end
 function rules.scalarFieldsAreLeaves(node, context)
   local field_t = types.bare(context.objects[#context.objects]).__type
   if field_t == 'Scalar' and node.selectionSet then
-    error('Scalar values cannot have subselections')
+    local valueName = node.name.value
+    error(('Scalar field %q cannot have subselections'):format(valueName))
   end
 end
 
@@ -77,7 +78,8 @@ function rules.compositeFieldsAreNotLeaves(node, context)
     field_t == 'Union'
 
   if isCompositeType and not node.selectionSet then
-    error('Composite types must have subselections')
+    local fieldName = node.name.value
+    error(('Composite field %q must have subselections'):format(fieldName))
   end
 end
 

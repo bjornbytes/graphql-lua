@@ -21,10 +21,14 @@ end
 function types.list(kind)
   assert(kind, 'Must provide a type')
 
-  return {
+  local instance = {
     __type = 'List',
     ofType = kind
   }
+
+  instance.nonNull = types.nonNull(instance)
+
+  return instance
 end
 
 function types.scalar(config)

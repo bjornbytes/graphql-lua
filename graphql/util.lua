@@ -190,7 +190,9 @@ end
 --- case)
 --- @return[2] `false` otherwise
 local function is_array(table)
-    check(table, 'table', 'table')
+    if type(table) ~= 'table' then
+        return false
+    end
 
     local max = 0
     local count = 0

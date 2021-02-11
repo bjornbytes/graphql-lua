@@ -194,12 +194,16 @@ local function completeValue(fieldType, result, subSelections, context, opts)
   end
 
   if fieldTypeName == 'List' then
-    local innerType = fieldType.ofType
-
-    if type(result) ~= 'table' then
-      error('Expected a table for ' .. innerType.name .. ' list')
+    if not util.is_array(result) then
+      local resultType = type(result)
+      if resultType == 'table' then
+        resultType = 'map'
+      end
+      local message = ('Expected %q to be an "array", got %q'):format(fieldName, resultType)
+      error(message)
     end
 
+    local innerType = fieldType.ofType
     local values = {}
     for i, value in ipairs(result) do
       values[i] = completeValue(innerType, value, subSelections, context)
@@ -213,6 +217,10 @@ local function completeValue(fieldType, result, subSelections, context, opts)
   end
 
   if fieldTypeName == 'Object' then
+    if type(result) ~= 'table' then
+      local message = ('Expected %q to be a "map", got %q'):format(fieldName, type(result))
+      error(message)
+    end
     local completed = evaluateSelections(fieldType, result, subSelections, context)
     setmetatable(completed, serializemap)
     return completed

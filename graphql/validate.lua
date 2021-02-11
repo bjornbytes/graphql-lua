@@ -15,7 +15,7 @@ local function getParentField(context, name, count)
     parent = parent.ofType
   end
 
-  return parent.fields[name]
+  return parent.fields and parent.fields[name]
 end
 
 local visitors = {

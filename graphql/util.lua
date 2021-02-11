@@ -1,21 +1,21 @@
-local util = {}
+local ffi = require('ffi')
+local yaml = require('yaml').new({encode_use_tostring = true})
 
-function util.map(t, fn)
+local function map(t, fn)
   local res = {}
   for k, v in pairs(t) do res[k] = fn(v, k) end
   return res
 end
 
-function util.find(t, fn)
-  local res = {}
+local function find(t, fn)
   for k, v in pairs(t) do
     if fn(v, k) then return v end
   end
 end
 
-function util.filter(t, fn)
+local function filter(t, fn)
   local res = {}
-  for k,v in pairs(t) do
+  for _,v in pairs(t) do
     if fn(v) then
       table.insert(res, v)
     end
@@ -23,7 +23,7 @@ function util.filter(t, fn)
   return res
 end
 
-function util.values(t)
+local function values(t)
   local res = {}
   for _, value in pairs(t) do
     table.insert(res, value)
@@ -31,42 +31,58 @@ function util.values(t)
   return res
 end
 
-function util.compose(f, g)
+local function compose(f, g)
   return function(...) return f(g(...)) end
 end
 
-function util.bind1(func, x)
+local function bind1(func, x)
   return function(y)
     return func(x, y)
   end
 end
 
-function util.trim(s)
-  return s:gsub('^%s+', ''):gsub('%s$', ''):gsub('%s%s+', ' ')
+local function trim(s)
+  return s:gsub('^%s+', ''):gsub('%s+$', ''):gsub('%s%s+', ' ')
 end
 
-function util.coerceValue(node, schemaType, variables, defaultValues)
+local function getTypeName(t)
+  if t.name ~= nil then
+    return t.name
+  elseif t.__type == 'NonNull' then
+    return ('NonNull(%s)'):format(getTypeName(t.ofType))
+  elseif t.__type == 'List' then
+    return ('List(%s)'):format(getTypeName(t.ofType))
+  end
+
+  local err = ('Internal error: unknown type:\n%s'):format(yaml.encode(t))
+  error(err)
+end
+
+local function coerceValue(node, schemaType, variables, opts)
   variables = variables or {}
-  defaultValues = defaultValues or {}
+  opts = opts or {}
+  local strict_non_null = opts.strict_non_null or false
 
   if schemaType.__type == 'NonNull' then
-    return util.coerceValue(node, schemaType.ofType, variables, defaultValues)
+    local res = coerceValue(node, schemaType.ofType, variables, opts)
+    if strict_non_null and res == nil then
+      error(('Expected non-null for "%s", got null'):format(
+        getTypeName(schemaType)))
+    end
+    return res
   end
 
   if not node then
     return nil
   end
 
+  -- handle precompiled values
+  if node.compiled ~= nil then
+    return node.compiled
+  end
+
   if node.kind == 'variable' then
-      if variables[node.name.value] ~= nil then
-          return variables[node.name.value]
-      elseif defaultValues[node.name.value] ~= nil then
-          return defaultValues[node.name.value]
-      else
-          return nil
-      --else -- TODO Validation pass variables and defaultValues to validation mechanism
-      --    error(('Value %s is unspecified'):format(node.name.value))
-      end
+    return variables[node.name.value]
   end
 
   if schemaType.__type == 'List' then
@@ -74,47 +90,174 @@ function util.coerceValue(node, schemaType, variables, defaultValues)
       error('Expected a list')
     end
 
-    return util.map(node.values, function(value)
-      return util.coerceValue(value, schemaType.ofType, variables, defaultValues)
+    return map(node.values, function(value)
+      return coerceValue(value, schemaType.ofType, variables, opts)
     end)
   end
 
-  if schemaType.__type == 'InputObject' then
+  local isInputObject = schemaType.__type == 'InputObject'
+  if isInputObject then
     if node.kind ~= 'inputObject' then
       error('Expected an input object')
     end
 
-    local result = {}
+    -- check all fields: as from value as well as from schema
+    local fieldNameSet = {}
+    local fieldValues = {}
     for _, field in ipairs(node.values) do
-      if not schemaType.fields[field.name] then
-        error('Unknown input object field "' .. field.name .. '"')
-      end
-      result[field.name] = util.coerceValue(field.value, schemaType.fields[field.name].kind,
-                                            variables, defaultValues)
+        fieldNameSet[field.name] = true
+        fieldValues[field.name] = field.value
     end
-    return result
+    for fieldName, _ in pairs(schemaType.fields) do
+        fieldNameSet[fieldName] = true
+    end
+
+    local inputObjectValue = {}
+    for fieldName, _ in pairs(fieldNameSet) do
+      if not schemaType.fields[fieldName] then
+        error(('Unknown input object field "%s"'):format(fieldName))
+      end
+
+      local childValue = fieldValues[fieldName]
+      local childType = schemaType.fields[fieldName].kind
+      inputObjectValue[fieldName] = coerceValue(childValue, childType,
+        variables, opts)
+    end
+
+    return inputObjectValue
   end
 
   if schemaType.__type == 'Enum' then
     if node.kind ~= 'enum' then
-      error('Expected enum value, got ' .. node.kind)
+      error(('Expected enum value, got %s'):format(node.kind))
     end
 
     if not schemaType.values[node.value] then
-      error('Invalid enum value "' .. node.value .. '"')
+      error(('Invalid enum value "%s"'):format(node.value))
     end
 
     return node.value
   end
 
   if schemaType.__type == 'Scalar' then
-    local parsed = schemaType.parseLiteral(node)
-    if parsed == nil then
-      error('Could not coerce "' .. tostring(node.value) .. '" to "' .. schemaType.name .. '"')
+    if schemaType.parseLiteral(node) == nil then
+      error(('Could not coerce "%s" to "%s"'):format(
+        tostring(node.value), schemaType.name))
     end
 
-    return parsed
+    return schemaType.parseLiteral(node)
   end
 end
 
-return util
+--- Check whether passed value has one of listed types.
+---
+--- @param obj value to check
+---
+--- @tparam string obj_name name of the value to form an error
+---
+--- @tparam string type_1
+--- @tparam[opt] string type_2
+--- @tparam[opt] string type_3
+---
+--- @return nothing
+local function check(obj, obj_name, type_1, type_2, type_3)
+    if type(obj) == type_1 or type(obj) == type_2 or type(obj) == type_3 then
+        return
+    end
+
+    if type_3 ~= nil then
+        error(('%s must be a %s or a % or a %s, got %s'):format(obj_name,
+            type_1, type_2, type_3, type(obj)))
+    elseif type_2 ~= nil then
+        error(('%s must be a %s or a %s, got %s'):format(obj_name, type_1,
+            type_2, type(obj)))
+    else
+        error(('%s must be a %s, got %s'):format(obj_name, type_1, type(obj)))
+    end
+end
+
+--- Check whether table is an array.
+---
+--- Based on [that][1] implementation.
+--- [1]: https://github.com/mpx/lua-cjson/blob/db122676/lua/cjson/util.lua
+---
+--- @tparam table table to check
+--- @return[1] `true` if passed table is an array (includes the empty table
+--- case)
+--- @return[2] `false` otherwise
+local function is_array(table)
+    check(table, 'table', 'table')
+
+    local max = 0
+    local count = 0
+    for k, _ in pairs(table) do
+        if type(k) == 'number' then
+            if k > max then
+                max = k
+            end
+            count = count + 1
+        else
+            return false
+        end
+    end
+    if max > count * 2 then
+        return false
+    end
+
+    return max >= 0
+end
+
+-- Copied from tarantool/tap
+local function cmpdeeply(got, expected)
+    if type(expected) == "number" or type(got) == "number" then
+        if got ~= got and expected ~= expected then
+            return true -- nan
+        end
+        return got == expected
+    end
+
+    if ffi.istype('bool', got) then got = (got == 1) end
+    if ffi.istype('bool', expected) then expected = (expected == 1) end
+
+    if type(got) ~= type(expected) then
+        return false
+    end
+
+    if type(got) ~= 'table' or type(expected) ~= 'table' then
+        return got == expected
+    end
+
+    local visited_keys = {}
+
+    for i, v in pairs(got) do
+        visited_keys[i] = true
+        if not cmpdeeply(v, expected[i]) then
+            return false
+        end
+    end
+
+    -- check if expected contains more keys then got
+    for i in pairs(expected) do
+        if visited_keys[i] ~= true then
+            return false
+        end
+    end
+
+    return true
+end
+
+return {
+  map = map,
+  find = find,
+  filter = filter,
+  values = values,
+  compose = compose,
+  bind1 = bind1,
+  trim = trim,
+  getTypeName = getTypeName,
+  coerceValue = coerceValue,
+
+  is_array = is_array,
+  check = check,
+  cmpdeeply = cmpdeeply,
+}

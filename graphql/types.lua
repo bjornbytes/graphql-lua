@@ -1,5 +1,6 @@
 local path = (...):gsub('%.[^%.]+$', '')
 local util = require(path .. '.util')
+local ffi = require('ffi')
 local format = string.format
 
 local registered_types = {}
@@ -7,6 +8,26 @@ local types = {}
 
 local function get_env()
     return registered_types
+end
+
+local function initFields(kind, fields)
+  assert(type(fields) == 'table', 'fields table must be provided')
+
+  local result = {}
+
+  for fieldName, field in pairs(fields) do
+    field = field.__type and { kind = field } or field
+    result[fieldName] = {
+      name = fieldName,
+      kind = field.kind,
+      description = field.description,
+      deprecationReason = field.deprecationReason,
+      arguments = field.arguments or {},
+      resolve = kind == 'Object' and field.resolve or nil
+    }
+  end
+
+  return result
 end
 
 function types.nonNull(kind)
@@ -31,6 +52,24 @@ function types.list(kind)
   return instance
 end
 
+function types.nullable(kind)
+    assert(type(kind) == 'table', 'kind must be a table, got ' .. type(kind))
+
+    if kind.__type ~= 'NonNull' then return kind end
+
+    assert(kind.ofType ~= nil, 'kind.ofType must not be nil')
+    return types.nullable(kind.ofType)
+end
+
+function types.bare(kind)
+    assert(type(kind) == 'table', 'kind must be a table, got ' .. type(kind))
+
+    if kind.ofType == nil then return kind end
+
+    assert(kind.ofType ~= nil, 'kind.ofType must not be nil')
+    return types.bare(kind.ofType)
+end
+
 function types.scalar(config)
   assert(type(config.name) == 'string', 'type name must be provided as a string')
   assert(type(config.serialize) == 'function', 'serialize must be a function')
@@ -47,7 +86,8 @@ function types.scalar(config)
     description = config.description,
     serialize = config.serialize,
     parseValue = config.parseValue,
-    parseLiteral = config.parseLiteral
+    parseLiteral = config.parseLiteral,
+    isValueOfTheType = config.isValueOfTheType,
   }
 
   instance.nonNull = types.nonNull(instance)
@@ -111,26 +151,6 @@ function types.interface(config)
   get_env()[config.name] = instance
 
   return instance
-end
-
-function initFields(kind, fields)
-  assert(type(fields) == 'table', 'fields table must be provided')
-
-  local result = {}
-
-  for fieldName, field in pairs(fields) do
-    field = field.__type and { kind = field } or field
-    result[fieldName] = {
-      name = fieldName,
-      kind = field.kind,
-      description = field.description,
-      deprecationReason = field.deprecationReason,
-      arguments = field.arguments or {},
-      resolve = kind == 'Object' and field.resolve or nil
-    }
-  end
-
-  return result
 end
 
 function types.enum(config)
@@ -209,28 +229,58 @@ function types.inputObject(config)
   return instance
 end
 
-local coerceInt = function(value)
-  value = tonumber(value)
-
-  if not value then return end
-
-  if value == value and value < 2 ^ 32 and value >= -2 ^ 32 then
-    return value < 0 and math.ceil(value) or math.floor(value)
+-- Based on the code from tarantool/checks.
+local function isInt(value)
+  if type(value) == 'number' then
+    return value >= -2^31 and value < 2^31 and math.floor(value) == value
   end
-end
-
-local coerceLong = function(value)
-  value = tonumber64(value)
 
   if type(value) == 'cdata' then
-    return value
+    if ffi.istype('int64_t', value) then
+      return value >= -2^31 and value < 2^31
+    elseif ffi.istype('uint64_t', value) then
+      return value < 2^31
+    end
   end
 
-  if not value then return end
+  return false
+end
 
-  if value == value and value < 2 ^ 52 and value >= -2 ^ 52 then
-      return value < 0 and math.ceil(value) or math.floor(value)
+-- The code from tarantool/checks.
+local function isLong(value)
+  if type(value) == 'number' then
+    -- Double floating point format has 52 fraction bits. If we want to keep
+    -- integer precision, the number must be less than 2^53.
+    return value > -2^53 and value < 2^53 and math.floor(value) == value
   end
+
+  if type(value) == 'cdata' then
+    if ffi.istype('int64_t', value) then
+      return true
+    elseif ffi.istype('uint64_t', value) then
+      return value < 2^63
+    end
+  end
+
+  return false
+end
+
+local function coerceInt(value)
+  local value = tonumber(value)
+
+  if value == nil then return end
+  if not isInt(value) then return end
+
+  return value
+end
+
+local function coerceLong(value)
+  local value = tonumber64(value)
+
+  if value == nil then return end
+  if not isLong(value) then return end
+
+  return value
 end
 
 types.int = types.scalar({
@@ -242,7 +292,8 @@ types.int = types.scalar({
     if node.kind == 'int' then
       return coerceInt(node.value)
     end
-  end
+  end,
+  isValueOfTheType = isInt,
 })
 
 types.long = types.scalar({
@@ -254,7 +305,8 @@ types.long = types.scalar({
     if node.kind == 'long' or node.kind == 'int' then
       return coerceLong(node.value)
     end
-  end
+  end,
+  isValueOfTheType = isLong,
 })
 
 types.float = types.scalar({
@@ -265,7 +317,10 @@ types.float = types.scalar({
     if node.kind == 'float' or node.kind == 'int' then
       return tonumber(node.value)
     end
-  end
+  end,
+  isValueOfTheType = function(value)
+    return type(value) == 'number'
+  end,
 })
 
 types.string = types.scalar({
@@ -277,7 +332,10 @@ types.string = types.scalar({
     if node.kind == 'string' then
       return node.value
     end
-  end
+  end,
+  isValueOfTheType = function(value)
+    return type(value) == 'string'
+  end,
 })
 
 local function toboolean(x)
@@ -295,7 +353,10 @@ types.boolean = types.scalar({
     else
       return nil
     end
-  end
+  end,
+  isValueOfTheType = function(value)
+    return type(value) == 'boolean'
+  end,
 })
 
 types.id = types.scalar({

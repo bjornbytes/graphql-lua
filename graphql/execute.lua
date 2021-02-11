@@ -2,20 +2,8 @@ local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
 local introspection = require(path .. '.introspection')
-
-local function typeFromAST(node, schema)
-  local innerType
-  if node.kind == 'listType' then
-    innerType = typeFromAST(node.type)
-    return innerType and types.list(innerType)
-  elseif node.kind == 'nonNullType' then
-    innerType = typeFromAST(node.type)
-    return innerType and types.nonNull(innerType)
-  else
-    assert(node.kind == 'namedType', 'Variable must be a named type')
-    return schema:getType(node.name.value)
-  end
-end
+local query_util = require(path .. '.query_util')
+local validate_variables = require(path .. '.validate_variables')
 
 local function getFieldResponseKey(field)
   return field.alias and field.alias.name.value or field.name.value
@@ -50,7 +38,7 @@ end
 local function doesFragmentApply(fragment, type, context)
   if not fragment.typeCondition then return true end
 
-  local innerType = typeFromAST(fragment.typeCondition, context.schema)
+  local innerType = query_util.typeFromAST(fragment.typeCondition, context.schema)
 
   if innerType == type then
     return true
@@ -83,48 +71,69 @@ local function defaultResolver(object, arguments, info)
   return object[info.fieldASTs[1].name.value]
 end
 
+local function getOperation(tree, operationName)
+    local operation
+
+    for _, definition in ipairs(tree.definitions) do
+        if definition.kind == 'operation' then
+            if not operationName and operation then
+                error('Operation name must be specified if more than one operation exists.')
+            end
+
+            if not operationName or definition.name.value == operationName then
+                operation = definition
+            end
+        end
+    end
+
+    if not operation then
+        if operationName then
+            error('Unknown operation "' .. operationName .. '"')
+        else
+            error('Must provide an operation')
+        end
+    end
+
+    return operation
+end
+
+local function getFragmentDefinitions(tree)
+    local fragmentMap = {}
+
+    for _, definition in ipairs(tree.definitions) do
+        if definition.kind == 'fragmentDefinition' then
+            fragmentMap[definition.name.value] = definition
+        end
+    end
+
+    return fragmentMap
+end
+
+-- Extract variableTypes from the operation.
+local function getVariableTypes(schema, operation)
+    local variableTypes = {}
+
+    for _, definition in ipairs(operation.variableDefinitions or {}) do
+        variableTypes[definition.variable.name.value] =
+            query_util.typeFromAST(definition.type, schema)
+    end
+
+    return variableTypes
+end
+
 local function buildContext(schema, tree, rootValue, variables, operationName)
-  local context = {
-    schema = schema,
-    rootValue = rootValue,
-    variables = variables,
-    operation = nil,
-    fragmentMap = {},
-    defaultValues = {},
-    request_cache = {},
+  local operation = getOperation(tree, operationName)
+  local fragmentMap = getFragmentDefinitions(tree)
+  local variableTypes = getVariableTypes(schema, operation)
+  return {
+      schema = schema,
+      rootValue = rootValue,
+      variables = variables,
+      operation = operation,
+      fragmentMap = fragmentMap,
+      variableTypes = variableTypes,
+      request_cache = {},
   }
-
-  for _, definition in ipairs(tree.definitions) do
-    if definition.kind == 'operation' then
-      if not operationName and context.operation then
-        error('Operation name must be specified if more than one operation exists.')
-      end
-
-      if not operationName or definition.name.value == operationName then
-        context.operation = definition
-      end
-
-      for _, variableDefinition in ipairs(definition.variableDefinitions or {}) do
-          if variableDefinition.defaultValue ~= nil then
-              context.defaultValues[variableDefinition.variable.name.value] =
-                  variableDefinition.defaultValue.value
-
-          end
-      end
-    elseif definition.kind == 'fragmentDefinition' then
-      context.fragmentMap[definition.name.value] = definition
-    end
-  end
-
-  if not context.operation then
-    if operationName then
-      error('Unknown operation "' .. operationName .. '"')
-    else
-      error('Must provide an operation')
-    end
-  end
-
-  return context
 end
 
 local function collectFields(objectType, selections, visitedFragments, result, context)
@@ -216,7 +225,6 @@ end
 local function getFieldEntry(objectType, object, fields, context)
   local firstField = fields[1]
   local fieldName = firstField.name.value
-  local responseKey = getFieldResponseKey(firstField)
   local fieldType = introspection.fieldMap[fieldName] or objectType.fields[fieldName]
 
   if fieldType == nil then
@@ -231,11 +239,10 @@ local function getFieldEntry(objectType, object, fields, context)
   local arguments = util.map(fieldType.arguments or {}, function(argument, name)
     local supplied = argumentMap[name] and argumentMap[name].value
 
-    local value = supplied and util.coerceValue(supplied, argument,
-                                                context.variables,
-                                                context.defaultValues)
-    if value ~= nil then
-      return value
+    supplied = util.coerceValue(supplied, argument, context.variables,
+      {strict_non_null = true})
+    if supplied ~= nil then
+      return supplied
     end
 
     return argument.defaultValue
@@ -293,7 +300,8 @@ evaluateSelections = function(objectType, object, selections, context)
     assert(result[field.name] == nil,
       'two selections into the one field: ' .. field.name)
     result[field.name] = getFieldEntry(objectType, object, {field.selection},
-      context)
+                                       context)
+
     if result[field.name] == nil then
         result[field.name] = box.NULL
     end
@@ -308,6 +316,8 @@ local function execute(schema, tree, rootValue, variables, operationName)
   if not rootType then
     error('Unsupported operation "' .. context.operation.operation .. '"')
   end
+
+  validate_variables.validate_variables(context)
 
   return evaluateSelections(rootType, rootValue, context.operation.selectionSet.selections, context)
 end

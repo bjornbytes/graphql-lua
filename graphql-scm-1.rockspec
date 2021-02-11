@@ -23,10 +23,12 @@ build = {
     ['graphql.execute'] = 'graphql/execute.lua',
     ['graphql.introspection'] = 'graphql/introspection.lua',
     ['graphql.parse'] = 'graphql/parse.lua',
+    ['graphql.query_util'] = 'graphql/query_util.lua',
     ['graphql.rules'] = 'graphql/rules.lua',
     ['graphql.schema'] = 'graphql/schema.lua',
     ['graphql.types'] = 'graphql/types.lua',
     ['graphql.util'] = 'graphql/util.lua',
     ['graphql.validate'] = 'graphql/validate.lua',
+    ['graphql.validate_variables'] = 'graphql/validate_variables.lua',
   }
 }

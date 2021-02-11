@@ -153,6 +153,7 @@ local function collectFields(objectType, selections, visitedFragments, result, c
 end
 
 local evaluateSelections
+local serializemap = {__serialize='map'}
 
 local function completeValue(fieldType, result, subSelections, context, opts)
   local fieldName = opts and opts.fieldName or '???'
@@ -198,10 +199,14 @@ local function completeValue(fieldType, result, subSelections, context, opts)
   end
 
   if fieldTypeName == 'Object' then
-    return evaluateSelections(fieldType, result, subSelections, context)
+    local completed = evaluateSelections(fieldType, result, subSelections, context)
+    setmetatable(completed, serializemap)
+    return completed
   elseif fieldTypeName == 'Interface' or fieldTypeName == 'Union' then
     local objectType = fieldType.resolveType(result)
-    return evaluateSelections(objectType, result, subSelections, context)
+    local completed = evaluateSelections(objectType, result, subSelections, context)
+    setmetatable(completed, serializemap)
+    return completed
   end
 
   error('Unknown type "' .. fieldTypeName .. '" for field "' .. fieldName .. '"')
@@ -234,6 +239,23 @@ local function getFieldEntry(objectType, object, fields, context)
 
     return argument.defaultValue
   end)
+
+  --[[
+      Make arguments ordered map using metatble.
+      This way callback can use positions to access argument values.
+      For example buisness logic depends on argument positions to choose
+      appropriate storage iteration.
+  ]]
+  local positions = {}
+  local pos = 1
+  for _, argument in ipairs(firstField.arguments or {}) do
+      if argument and argument.value then
+          positions[pos] = arguments[argument.name.value]
+          pos = pos + 1
+      end
+  end
+
+  arguments = setmetatable(arguments, {__index=positions})
 
   local info = {
     fieldName = fieldName,

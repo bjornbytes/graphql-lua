@@ -77,6 +77,7 @@ end
 function types.scalar(config)
   assert(type(config.name) == 'string', 'type name must be provided as a string')
   assert(type(config.serialize) == 'function', 'serialize must be a function')
+  assert(type(config.isValueOfTheType) == 'function', 'isValueOfTheType must be a function')
   if config.parseValue or config.parseLiteral then
     assert(
       type(config.parseValue) == 'function' and type(config.parseLiteral) == 'function',
@@ -366,13 +367,22 @@ types.boolean = types.scalar({
   end,
 })
 
+--[[
+The ID scalar type represents a unique identifier,
+often used to refetch an object or as the key for a cache.
+The ID type is serialized in the same way as a String;
+however, defining it as an ID signifies that it is not intended to be human‐readable.
+--]]
 types.id = types.scalar({
   name = 'ID',
   serialize = tostring,
   parseValue = tostring,
   parseLiteral = function(node)
     return node.kind == 'string' or node.kind == 'int' and node.value or nil
-  end
+  end,
+  isValueOfTheType = function(value)
+    return type(value) == 'string'
+  end,
 })
 
 function types.directive(config)

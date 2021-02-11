@@ -154,15 +154,21 @@ end
 
 local evaluateSelections
 
-local function completeValue(fieldType, result, subSelections, context)
+local function completeValue(fieldType, result, subSelections, context, opts)
+  local fieldName = opts and opts.fieldName or '???'
   local fieldTypeName = fieldType.__type
 
   if fieldTypeName == 'NonNull' then
     local innerType = fieldType.ofType
-    local completedResult = completeValue(innerType, result, subSelections, context)
+    local completedResult = completeValue(innerType, result, subSelections, context, opts)
 
     if completedResult == nil then
-      error('No value provided for non-null ' .. (innerType.name or innerType.__type))
+      local err = string.format(
+        'No value provided for non-null %s %q',
+        (innerType.name or innerType.__type),
+        fieldName
+      )
+      error(err)
     end
 
     return completedResult
@@ -198,7 +204,7 @@ local function completeValue(fieldType, result, subSelections, context)
     return evaluateSelections(objectType, result, subSelections, context)
   end
 
-  error('Unknown type "' .. fieldTypeName .. '" for field "' .. field.name .. '"')
+  error('Unknown type "' .. fieldTypeName .. '" for field "' .. fieldName .. '"')
 end
 
 local function getFieldEntry(objectType, object, fields, context)
@@ -245,7 +251,9 @@ local function getFieldEntry(objectType, object, fields, context)
   local resolvedObject = (fieldType.resolve or defaultResolver)(object, arguments, info)
   local subSelections = mergeSelectionSets(fields)
 
-  return completeValue(fieldType.kind, resolvedObject, subSelections, context)
+  return completeValue(fieldType.kind, resolvedObject, subSelections, context,
+    {fieldName = fieldName}
+  )
 end
 
 evaluateSelections = function(objectType, object, selections, context)

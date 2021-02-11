@@ -146,7 +146,7 @@ local function coerceValue(node, schemaType, variables, opts)
   if schemaType.__type == 'Scalar' then
     if schemaType.parseLiteral(node) == nil then
       error(('Could not coerce "%s" to "%s"'):format(
-        tostring(node.value), schemaType.name))
+        node.value or node.kind, schemaType.name))
     end
 
     return schemaType.parseLiteral(node)

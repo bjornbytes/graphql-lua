@@ -9,7 +9,7 @@ end
 local schema = {}
 schema.__index = schema
 
-function schema.create(config)
+function schema.create(config, name)
   assert(type(config.query) == 'table', 'must provide query object')
   assert(not config.mutation or type(config.mutation) == 'table', 'mutation must be a table if provided')
 
@@ -27,6 +27,7 @@ function schema.create(config)
   self.typeMap = {}
   self.interfaceMap = {}
   self.directiveMap = {}
+  self.name = name
 
   self:generateTypeMap(self.query)
   self:generateTypeMap(self.mutation)
@@ -41,7 +42,7 @@ function schema:generateTypeMap(node)
 
   if node.__type == 'NonNull' or node.__type == 'List' then
     -- HACK: resolve type names to real types
-    node.ofType = types.resolve(node.ofType)
+    node.ofType = types.resolve(node.ofType, self.name)
     return self:generateTypeMap(node.ofType)
   end
 
@@ -56,7 +57,7 @@ function schema:generateTypeMap(node)
     for idx, interface in ipairs(node.interfaces) do
       -- BEGIN_HACK: resolve type names to real types
       if type(interface) == 'string' then
-        interface = types.resolve(interface)
+        interface = types.resolve(interface, self.name)
         node.interfaces[idx] = interface
       end
       -- END_HACK: resolve type names to real types
@@ -73,12 +74,12 @@ function schema:generateTypeMap(node)
         for name, argument in pairs(field.arguments) do
           -- BEGIN_HACK: resolve type names to real types
           if type(argument) == 'string' then
-            argument = types.resolve(argument)
+            argument = types.resolve(argument, self.name)
             field.arguments[name] = argument
           end
 
           if type(argument.kind) == 'string' then
-            argument.kind = types.resolve(argument.kind)
+            argument.kind = types.resolve(argument.kind, self.name)
           end
           -- END_HACK: resolve type names to real types
 
@@ -89,7 +90,7 @@ function schema:generateTypeMap(node)
       end
 
       -- HACK: resolve type names to real types
-      field.kind = types.resolve(field.kind)
+      field.kind = types.resolve(field.kind, self.name)
       self:generateTypeMap(field.kind)
     end
   end

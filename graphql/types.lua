@@ -3,15 +3,21 @@ local util = require(path .. '.util')
 local ffi = require('ffi')
 local format = string.format
 
-local registered_types = {}
-local types = {}
-
-local function get_env()
-    return registered_types
-end
-
 local function error(...)
   return _G.error(..., 0)
+end
+
+local types = {}
+
+local registered_types = {}
+local global_schema = '__global__'
+function types.get_env(schema_name)
+    if schema_name == nil then
+        schema_name = global_schema
+    end
+
+    registered_types[schema_name] = registered_types[schema_name] or {}
+    return registered_types[schema_name]
 end
 
 local function initFields(kind, fields)
@@ -124,7 +130,7 @@ function types.object(config)
 
   instance.nonNull = types.nonNull(instance)
 
-  get_env()[config.name] = instance
+  types.get_env(config.schema)[config.name] = instance
 
   return instance
 end
@@ -153,7 +159,7 @@ function types.interface(config)
 
   instance.nonNull = types.nonNull(instance)
 
-  get_env()[config.name] = instance
+  types.get_env(config.schema)[config.name] = instance
 
   return instance
 end
@@ -188,7 +194,7 @@ function types.enum(config)
 
   instance.nonNull = types.nonNull(instance)
 
-  get_env()[config.name] = instance
+  types.get_env(config.schema)[config.name] = instance
 
   return instance
 end
@@ -205,7 +211,7 @@ function types.union(config)
 
   instance.nonNull = types.nonNull(instance)
 
-  get_env()[config.name] = instance
+  types.get_env(config.schema)[config.name] = instance
 
   return instance
 end
@@ -229,7 +235,7 @@ function types.inputObject(config)
     fields = fields
   }
 
-  get_env()[config.name] = instance
+  types.get_env(config.schema)[config.name] = instance
 
   return instance
 end
@@ -426,7 +432,7 @@ types.skip = types.directive({
   onInlineFragment = true
 })
 
-types.resolve = function(type_name_or_obj)
+types.resolve = function(type_name_or_obj, schema)
     if type(type_name_or_obj) == 'table' then
         return type_name_or_obj
     end
@@ -435,7 +441,7 @@ types.resolve = function(type_name_or_obj)
         error('types.resolve() expects type to be string or table')
     end
 
-    local type_obj = registered_types[type_name_or_obj]
+    local type_obj = types.get_env(schema)[type_name_or_obj]
 
     if type_obj == nil then
         error(format("No type found named '%s'", type_name_or_obj))

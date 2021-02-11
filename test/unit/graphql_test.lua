@@ -7,11 +7,6 @@ local schema = require('graphql.schema')
 local validate = require('graphql.validate').validate
 
 function g.test_parse_comments()
-    t.assert_equals(parse('#').definitions, {})
-    t.assert_equals(parse('#{}').definitions, {})
-    t.assert_not_equals(parse('{}').definitions, {})
-
-    t.assert_error(parse('{}#a$b@').definitions, {})
     t.assert_error(parse('{a(b:"#")}').definitions, {})
 end
 
@@ -20,90 +15,86 @@ function g.test_parse_document()
     t.assert_error(parse, 'foo')
     t.assert_error(parse, 'query')
     t.assert_error(parse, 'query{} foo')
-
-    t.assert_covers(parse(''), { kind = 'document', definitions = {} })
-    t.assert_equals(parse('query{} mutation{} {}').kind, 'document')
-    t.assert_equals(#parse('query{} mutation{} {}').definitions, 3)
 end
 
 function g.test_parse_operation_shorthand()
-    local operation = parse('{}').definitions[1]
+    local operation = parse('{a}').definitions[1]
     t.assert_equals(operation.kind, 'operation')
     t.assert_equals(operation.name, nil)
     t.assert_equals(operation.operation, 'query')
 end
 
 function g.test_parse_operation_operationType()
-    local operation = parse('query{}').definitions[1]
+    local operation = parse('query{a}').definitions[1]
     t.assert_equals(operation.operation, 'query')
 
-    operation = parse('mutation{}').definitions[1]
+    operation = parse('mutation{a}').definitions[1]
     t.assert_equals(operation.operation, 'mutation')
 
-    t.assert_error(parse, 'kneeReplacement{}')
+    t.assert_error(parse, 'kneeReplacement{b}')
 end
 
 function g.test_parse_operation_name()
-    local operation = parse('query{}').definitions[1]
+    local operation = parse('query{a}').definitions[1]
     t.assert_equals(operation.name, nil)
 
-    operation = parse('query queryName{}').definitions[1]
+    operation = parse('query queryName{a}').definitions[1]
     t.assert_not_equals(operation.name, nil)
     t.assert_equals(operation.name.value, 'queryName')
 end
 
 function g.test_parse_operation_variableDefinitions()
-    t.assert_error(parse, 'query(){}')
-    t.assert_error(parse, 'query(x){}')
+    t.assert_error(parse, 'query(){b}')
+    t.assert_error(parse, 'query(x){b}')
 
-    local operation = parse('query name($a:Int,$b:Int){}').definitions[1]
+    local operation = parse('query name($a:Int,$b:Int){c}').definitions[1]
     t.assert_equals(operation.name.value, 'name')
     t.assert_not_equals(operation.variableDefinitions, nil)
     t.assert_equals(#operation.variableDefinitions, 2)
 
-    operation = parse('query($a:Int,$b:Int){}').definitions[1]
+    operation = parse('query($a:Int,$b:Int){c}').definitions[1]
     t.assert_not_equals(operation.variableDefinitions, nil)
     t.assert_equals(#operation.variableDefinitions, 2)
 end
 
 function g.test_parse_operation_directives()
-    local operation = parse('query{}').definitions[1]
+    local operation = parse('query{a}').definitions[1]
     t.assert_equals(operation.directives, nil)
 
-    operation = parse('query @a{}').definitions[1]
+    operation = parse('query @a{b}').definitions[1]
     t.assert_not_equals(operation.directives, nil)
 
-    operation = parse('query name @a{}').definitions[1]
+    operation = parse('query name @a{b}').definitions[1]
     t.assert_not_equals(operation.directives, nil)
 
-    operation = parse('query ($a:Int) @a {}').definitions[1]
+    operation = parse('query ($a:Int) @a {b}').definitions[1]
     t.assert_not_equals(operation.directives, nil)
 
-    operation = parse('query name ($a:Int) @a {}').definitions[1]
+    operation = parse('query name ($a:Int) @a {b}').definitions[1]
     t.assert_not_equals(operation.directives, nil)
 end
 
 function g.test_parse_fragmentDefinition_fragmentName()
-    t.assert_error(parse, 'fragment {}')
-    t.assert_error(parse, 'fragment on x {}')
-    t.assert_error(parse, 'fragment on on x {}')
+    t.assert_error(parse, 'fragment {a}')
+    t.assert_error(parse, 'fragment on x {a}')
+    t.assert_error(parse, 'fragment on on x {a}')
 
-    local fragment = parse('fragment x on y {}').definitions[1]
+    local fragment = parse('fragment x on y { a }').definitions[1]
     t.assert_equals(fragment.kind, 'fragmentDefinition')
     t.assert_equals(fragment.name.value, 'x')
 end
 
 function g.test_parse_fragmentDefinition_typeCondition()
-    t.assert_error(parse, 'fragment x {}')
+    t.assert_error(parse, 'fragment x {c}')
 
-    local fragment = parse('fragment x on y {}').definitions[1]
+    local fragment = parse('fragment x on y { a }').definitions[1]
     t.assert_equals(fragment.typeCondition.name.value, 'y')
 end
 
 function g.test_parse_fragmentDefinition_selectionSet()
     t.assert_error(parse, 'fragment x on y')
 
-    local fragment = parse('fragment x on y {}').definitions[1]
+    local fragment = parse('fragment x on y { a }').definitions[1]
     t.assert_not_equals(fragment.selectionSet, nil)
 end
 
@@ -111,9 +102,9 @@ function g.test_parse_selectionSet()
     t.assert_error(parse, '{')
     t.assert_error(parse, '}')
 
-    local selectionSet = parse('{}').definitions[1].selectionSet
+    local selectionSet = parse('{a}').definitions[1].selectionSet
     t.assert_equals(selectionSet.kind, 'selectionSet')
-    t.assert_equals(selectionSet.selections, {})
+    t.assert_equals(selectionSet.selections, {{kind = "field", name = {kind = "name", value = "a"}}})
 
     selectionSet = parse('{a b}').definitions[1].selectionSet
     t.assert_equals(#selectionSet.selections, 2)
@@ -174,7 +165,7 @@ function g.test_parse_field_selectionSet()
     local field = parse('{a}').definitions[1].selectionSet.selections[1]
     t.assert_equals(field.selectionSet, nil)
 
-    field = parse('{a{}}').definitions[1].selectionSet.selections[1]
+    field = parse('{a { b } }').definitions[1].selectionSet.selections[1]
     t.assert_not_equals(field.selectionSet, nil)
 
     field = parse('{a{a}}').definitions[1].selectionSet.selections[1]
@@ -206,34 +197,34 @@ end
 function g.test_parse_inlineFragment_typeCondition()
     t.assert_error(parse, '{...on{}}')
 
-    local inlineFragment = parse('{...{}}').definitions[1].selectionSet.selections[1]
+    local inlineFragment = parse('{...{ a }}').definitions[1].selectionSet.selections[1]
     t.assert_equals(inlineFragment.kind, 'inlineFragment')
     t.assert_equals(inlineFragment.typeCondition, nil)
 
-    inlineFragment = parse('{...on a{}}').definitions[1].selectionSet.selections[1]
+    inlineFragment = parse('{...on a{ b }}').definitions[1].selectionSet.selections[1]
     t.assert_not_equals(inlineFragment.typeCondition, nil)
     t.assert_equals(inlineFragment.typeCondition.name.value, 'a')
 end
 
 function g.test_parse_inlineFragment_directives()
     t.assert_error(parse, '{...on a @ {}}')
-    local inlineFragment = parse('{...{}}').definitions[1].selectionSet.selections[1]
+    local inlineFragment = parse('{...{ a }}').definitions[1].selectionSet.selections[1]
     t.assert_equals(inlineFragment.directives, nil)
 
-    inlineFragment = parse('{...@skip{}}').definitions[1].selectionSet.selections[1]
+    inlineFragment = parse('{...@skip{ a }}').definitions[1].selectionSet.selections[1]
     t.assert_not_equals(inlineFragment.directives, nil)
 
-    inlineFragment = parse('{...on a@skip {}}').definitions[1].selectionSet.selections[1]
+    inlineFragment = parse('{...on a@skip { a }}').definitions[1].selectionSet.selections[1]
     t.assert_not_equals(inlineFragment.directives, nil)
 end
 
 function g.test_parse_inlineFragment_selectionSet()
     t.assert_error(parse, '{... on a}')
 
-    local inlineFragment = parse('{...{}}').definitions[1].selectionSet.selections[1]
+    local inlineFragment = parse('{...{a}}').definitions[1].selectionSet.selections[1]
     t.assert_not_equals(inlineFragment.selectionSet, nil)
 
-    inlineFragment = parse('{... on a{}}').definitions[1].selectionSet.selections[1]
+    inlineFragment = parse('{... on a{b}}').definitions[1].selectionSet.selections[1]
     t.assert_not_equals(inlineFragment.selectionSet, nil)
 end
 
@@ -292,15 +283,15 @@ function g.test_parse_variableDefinitions()
     t.assert_error(parse, 'query(@a){}')
     t.assert_error(parse, 'query($a){}')
 
-    local variableDefinitions = parse('query($a:Int){}').definitions[1].variableDefinitions
+    local variableDefinitions = parse('query($a:Int){ a }').definitions[1].variableDefinitions
     t.assert_equals(#variableDefinitions, 1)
 
-    variableDefinitions = parse('query($a:Int $b:Int){}').definitions[1].variableDefinitions
+    variableDefinitions = parse('query($a:Int $b:Int){ a }').definitions[1].variableDefinitions
     t.assert_equals(#variableDefinitions, 2)
 end
 
 function g.test_parse_variableDefinition_variable()
-    local variableDefinition = parse('query($a:Int){}').definitions[1].variableDefinitions[1]
+    local variableDefinition = parse('query($a:Int){ b }').definitions[1].variableDefinitions[1]
     t.assert_equals(variableDefinition.kind, 'variableDefinition')
     t.assert_equals(variableDefinition.variable.name.value, 'a')
 end
@@ -310,17 +301,17 @@ function g.test_parse_variableDefinition_type()
     t.assert_error(parse, 'query($a:){}')
     t.assert_error(parse, 'query($a Int){}')
 
-    local variableDefinition = parse('query($a:Int){}').definitions[1].variableDefinitions[1]
+    local variableDefinition = parse('query($a:Int){b}').definitions[1].variableDefinitions[1]
     t.assert_equals(variableDefinition.type.name.value, 'Int')
 end
 
 function g.test_parse_variableDefinition_defaultValue()
     t.assert_error(parse, 'query($a:Int=){}')
 
-    local variableDefinition = parse('query($a:Int){}').definitions[1].variableDefinitions[1]
+    local variableDefinition = parse('query($a:Int){b}').definitions[1].variableDefinitions[1]
     t.assert_equals(variableDefinition.defaultValue, nil)
 
-    variableDefinition = parse('query($a:Int=1){}').definitions[1].variableDefinitions[1]
+    variableDefinition = parse('query($a:Int=1){c}').definitions[1].variableDefinitions[1]
     t.assert_not_equals(variableDefinition.defaultValue, nil)
 end
 
@@ -464,36 +455,36 @@ function g.test_parse_value_object()
 end
 
 function g.test_parse_namedType()
-    t.assert_error(parse, 'query($a:$b){}')
+    t.assert_error(parse, 'query($a:$b){c}')
 
-    local namedType = parse('query($a:b){}').definitions[1].variableDefinitions[1].type
+    local namedType = parse('query($a:b){ c }').definitions[1].variableDefinitions[1].type
     t.assert_equals(namedType.kind, 'namedType')
     t.assert_equals(namedType.name.value, 'b')
 end
 
 function g.test_parse_listType()
-    t.assert_error(parse, 'query($a:[]){}')
+    t.assert_error(parse, 'query($a:[]){ b }')
 
-    local listType = parse('query($a:[b]){}').definitions[1].variableDefinitions[1].type
+    local listType = parse('query($a:[b]){ c }').definitions[1].variableDefinitions[1].type
     t.assert_equals(listType.kind, 'listType')
     t.assert_equals(listType.type.kind, 'namedType')
     t.assert_equals(listType.type.name.value, 'b')
 
-    listType = parse('query($a:[[b]]){}').definitions[1].variableDefinitions[1].type
+    listType = parse('query($a:[[b]]){ c }').definitions[1].variableDefinitions[1].type
     t.assert_equals(listType.kind, 'listType')
     t.assert_equals(listType.type.kind, 'listType')
 end
 
 function g.test_parse_nonNullType()
-    t.assert_error(parse, 'query($a:!){}')
-    t.assert_error(parse, 'query($a:b!!){}')
+    t.assert_error(parse, 'query($a:!){ b }')
+    t.assert_error(parse, 'query($a:b!!){ c }')
 
-    local nonNullType = parse('query($a:b!){}').definitions[1].variableDefinitions[1].type
+    local nonNullType = parse('query($a:b!){ c }').definitions[1].variableDefinitions[1].type
     t.assert_equals(nonNullType.kind, 'nonNullType')
     t.assert_equals(nonNullType.type.kind, 'namedType')
     t.assert_equals(nonNullType.type.name.value, 'b')
 
-    nonNullType = parse('query($a:[b]!){}').definitions[1].variableDefinitions[1].type
+    nonNullType = parse('query($a:[b]!) { c }').definitions[1].variableDefinitions[1].type
     t.assert_equals(nonNullType.kind, 'nonNullType')
     t.assert_equals(nonNullType.type.kind, 'listType')
 end
@@ -635,14 +626,14 @@ end
 function g.test_rules_uniqueOperationNames()
     -- errors if two operations have the same name
     expectError('Multiple operations exist named', [[
-        query foo { }
-        query foo { }
+        query foo { cat { name }  }
+        query foo { cat { name } }
     ]])
 
     -- passes if all operations have different names
     expectError(nil, [[
-        query foo { }
-        query bar { }
+        query foo { cat { name } }
+        query bar { cat { name } }
     ]])
 end
 
@@ -651,27 +642,27 @@ function g.test_rules_loneAnonymousOperation()
 
     -- fails if there is more than one operation and one of them is anonymous'
     expectError(message, [[
-        query { }
-        query named { }
+        query { cat { name } }
+        query named { cat { name }  }
     ]])
 
     expectError(message, [[
-        query named { }
-        query { }
+        query named { cat { name } }
+        query { cat { name } }
     ]])
 
     expectError(message, [[
-        query { }
-        query { }
+        query { cat { name } }
+        query { cat { name } }
     ]])
 
     -- passes if there is one anonymous operation
-    expectError(nil, '{}')
+    expectError(nil, '{ cat { name } }')
 
     -- passes if there are two named operations
     expectError(nil, [[
-        query one {}
-        query two {}
+        query one { cat { name } }
+        query two { cat { name } }
     ]])
 end
 
@@ -741,7 +732,7 @@ function g.test_rules_compositeFieldsAreNotLeaves()
     expectError(message, '{ catOrDog }')
 
     -- passes if all composite types have subselections
-    expectError(nil, '{ dog { name } pet { } }')
+    expectError(nil, '{ dog { name } pet { name } }')
 end
 
 function g.test_rules_unambiguousSelections()
@@ -821,20 +812,21 @@ end
 
 function g.test_rules_fragmentHasValidType()
     -- fails if a framgent refers to a non-composite type
-    expectError('Fragment type must be an Object, Interface, or Union', 'fragment f on DogCommand {}')
+    expectError('Fragment type must be an Object, Interface, or Union',
+            'fragment f on DogCommand { name }')
 
     -- fails if a fragment refers to a non-existent type
-    expectError('Fragment refers to non-existent type', 'fragment f on Hyena {}')
+    expectError('Fragment refers to non-existent type', 'fragment f on Hyena { a }')
 
     -- passes if a fragment refers to a composite type
-    expectError(nil, '{ dog { ...f } } fragment f on Dog {}')
+    expectError(nil, '{ dog { ...f } } fragment f on Dog { name }')
 end
 
 function g.test_rules_noUnusedFragments()
     local message = 'was not used'
 
     -- fails if a fragment is not used
-    expectError(message, 'fragment f on Dog {}')
+    expectError(message, 'fragment f on Dog { name }')
 end
 
 function g.test_rules_fragmentSpreadTargetDefined()
@@ -862,21 +854,21 @@ function g.test_rules_fragmentSpreadIsPossible()
     -- fails if a fragment type condition refers to a different object than the parent object
     expectError(message, [[
       { dog { ...f } }
-      fragment f on Cat { }
+      fragment f on Cat { name }
     ]])
 
 
     -- fails if a fragment type condition refers to an interface that the parent object does not implement
     expectError(message, [[
       { dog { ...f } }
-      fragment f on Sentient { }
+      fragment f on Sentient { name }
     ]])
 
 
     -- fails if a fragment type condition refers to a union that the parent object does not belong to
     expectError(message, [[
       { dog { ...f } }
-      fragment f on HumanOrAlien { }
+      fragment f on HumanOrAlien { name }
     ]])
 
 end
@@ -909,11 +901,11 @@ function g.test_rules_directivesAreDefined()
     local message = 'Unknown directive'
 
     -- fails if a directive does not exist
-    expectError(message, 'query @someRandomDirective {}')
+    expectError(message, 'query @someRandomDirective { op }')
 
 
     -- passes if directives exists
-    expectError(nil, 'query @skip {}')
+    expectError(nil, 'query @skip { dog { name } }')
 end
 
 function g.test_types_isValueOfTheType_for_scalars()

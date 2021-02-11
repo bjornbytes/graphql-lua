@@ -5,6 +5,10 @@ local introspection = require(path .. '.introspection')
 local query_util = require(path .. '.query_util')
 local validate_variables = require(path .. '.validate_variables')
 
+local function error(...)
+  return _G.error(..., 0)
+end
+
 local function getFieldResponseKey(field)
   return field.alias and field.alias.name.value or field.name.value
 end
@@ -236,16 +240,26 @@ local function getFieldEntry(objectType, object, fields, context)
     argumentMap[argument.name.value] = argument
   end
 
+  local defaultValues = {}
+  if context.operation.variableDefinitions ~= nil then
+    for _, value in ipairs(context.operation.variableDefinitions) do
+      if value.defaultValue ~= nil then
+        local variableType = query_util.typeFromAST(value.type, context.schema)
+        defaultValues[value.variable.name.value] = util.coerceValue(value.defaultValue, variableType)
+      end
+    end
+  end
+
   local arguments = util.map(fieldType.arguments or {}, function(argument, name)
     local supplied = argumentMap[name] and argumentMap[name].value
 
     supplied = util.coerceValue(supplied, argument, context.variables,
       {strict_non_null = true})
-    if supplied ~= nil then
+    if type(supplied) ~= 'nil' then
       return supplied
     end
 
-    return argument.defaultValue
+    return defaultValues[name]
   end)
 
   --[[

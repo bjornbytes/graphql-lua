@@ -410,7 +410,8 @@ function rules.variableDefaultValuesHaveCorrectType(node, context)
       if definition.type.kind == 'nonNullType' and definition.defaultValue then
         error('Non-null variables can not have default values')
       elseif definition.defaultValue then
-        util.coerceValue(definition.defaultValue, context.schema:getType(definition.type.name.value))
+        local variableType = query_util.typeFromAST(definition.type, context.schema)
+        util.coerceValue(definition.defaultValue, variableType)
       end
     end
   end

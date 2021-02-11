@@ -250,7 +250,10 @@ local function getFieldEntry(objectType, object, fields, context)
   local pos = 1
   for _, argument in ipairs(firstField.arguments or {}) do
       if argument and argument.value then
-          positions[pos] = arguments[argument.name.value]
+          positions[pos] = {
+              name=argument.name.value,
+              value=arguments[argument.name.value]
+          }
           pos = pos + 1
       end
   end

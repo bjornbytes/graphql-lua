@@ -66,18 +66,22 @@ local function coerceValue(node, schemaType, variables, opts)
   variables = variables or {}
   opts = opts or {}
   local strict_non_null = opts.strict_non_null or false
-
-  if schemaType.__type == 'NonNull' then
-    local res = coerceValue(node, schemaType.ofType, variables, opts)
-    if strict_non_null and res == nil then
-      error(('Expected non-null for "%s", got null'):format(
-        getTypeName(schemaType)))
-    end
-    return res
-  end
+  local defaultValues = opts.defaultValues or {}
 
   if not node then
     return nil
+  end
+
+  if schemaType.__type == 'NonNull' then
+    if node.kind == 'null' then
+      error(('Expected non-null for "%s", got null'):format(getTypeName(schemaType)))
+    end
+
+    local res = coerceValue(node, schemaType.ofType, variables, opts)
+    if strict_non_null and res == nil then
+      error(('Expected non-null for "%s", got null'):format(getTypeName(schemaType)))
+    end
+    return res
   end
 
   -- handle precompiled values
@@ -86,7 +90,24 @@ local function coerceValue(node, schemaType, variables, opts)
   end
 
   if node.kind == 'variable' then
-    return variables[node.name.value]
+    local value = variables[node.name.value]
+    local defaultValue = defaultValues[node.name.value]
+    if type(value) == 'nil' and type(defaultValue) ~= 'nil' then
+      -- default value was parsed by parseLiteral
+      value = defaultValue
+    elseif schemaType.parseValue ~= nil then
+      value = schemaType.parseValue(value)
+      if strict_non_null and type(value) == 'nil' then
+        error(('Could not coerce variable "%s" with value "%s" to type "%s"'):format(
+            node.name.value, variables[node.name.value], schemaType.name
+        ))
+      end
+    end
+    return value
+  end
+
+  if node.kind == 'null' then
+    return box.NULL
   end
 
   if schemaType.__type == 'List' then
@@ -144,12 +165,11 @@ local function coerceValue(node, schemaType, variables, opts)
   end
 
   if schemaType.__type == 'Scalar' then
-    if schemaType.parseLiteral(node) == nil then
-      error(('Could not coerce "%s" to "%s"'):format(
-        node.value or node.kind, schemaType.name))
+    local value = schemaType.parseLiteral(node)
+    if strict_non_null and type(value) == 'nil' then
+      error(('Could not coerce value "%s" to type "%s"'):format(node.value or node.kind, schemaType.name))
     end
-
-    return schemaType.parseLiteral(node)
+    return value
   end
 end
 

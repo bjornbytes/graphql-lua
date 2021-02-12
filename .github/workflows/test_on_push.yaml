@@ -1,0 +1,33 @@
+name: Run tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  run-tests-ce:
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' && github.event.pull_request.head.repo.owner.login != 'tarantool'
+    strategy:
+      matrix:
+        tarantool-version: ["1.10", "2.7"]
+      fail-fast: false
+    runs-on: [ubuntu-20.04]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: tarantool/setup-tarantool@v1
+        with:
+          tarantool-version: ${{ matrix.tarantool-version }}
+
+      - name: Install dependencies
+        run: |
+          tarantoolctl rocks install luatest 0.5.2
+          tarantoolctl rocks install luacheck 0.25.0
+          tarantoolctl rocks make
+
+      - name: Run linter
+        run: .rocks/bin/luacheck .
+
+      - name: Run tests
+        run: .rocks/bin/luatest -v

@@ -1,25 +1,26 @@
 Lua implementation of GraphQL for Tarantool
 ===========================================
 
-Lua implementation of GraphQL for Tarantool. It is based on [graphql-lua](https://github.com/bjornbytes/graphql-lua).
+Lua implementation of GraphQL for Tarantool.
+It is based on [graphql-lua](https://github.com/bjornbytes/graphql-lua).
 
 
 Installation
 ------------
 
 ```bash
-tarantoolctl rocks install https://raw.githubusercontent.com/tarantool/graphql/master/graphql-scm-1.rockspec
+tarantoolctl rocks install graphql
 ```
 
 Example
 ---
 
 ```lua
-local parse = require 'graphql.parse'
-local schema = require 'graphql.schema'
-local types = require 'graphql.types'
-local validate = require 'graphql.validate'
-local execute = require 'graphql.execute'
+local parse = require('graphql.parse')
+local schema = require('graphql.schema')
+local types = require('graphql.types')
+local validate = require('graphql.validate')
+local execute = require('graphql.execute')
 
 -- Parse a query
 local ast = parse [[
@@ -32,7 +33,7 @@ query getUser($id: ID) {
 ]]
 
 -- Create a type
-local Person = types.object {
+local Person = types.object({
   name = 'Person',
   fields = {
     id = types.id.nonNull,
@@ -41,11 +42,11 @@ local Person = types.object {
     lastName = types.string.nonNull,
     age = types.int.nonNull
   }
-}
+})
 
 -- Create a schema
-local schema = schema.create {
-  query = types.object {
+local schema = schema.create({
+  query = types.object({
     name = 'Query',
     fields = {
       person = {
@@ -65,8 +66,8 @@ local schema = schema.create {
         end
       }
     }
-  }
-}
+  })
+})
 
 -- Validate a parsed query against a schema
 validate(schema, ast)
@@ -91,21 +92,20 @@ execute(schema, ast, rootValue, variables, operationName)
 Status
 ---
 
-- [x] Parsing
-  - [ ] Improve error messages
+- [x] Parsing (based on [luagraphqlparser](https://github.com/tarantool/luagraphqlparser))
 - [x] Type system
 - [x] Introspection
 - [x] Validation
 - [x] Execution
   - [ ] Asynchronous execution (coroutines)
-- [ ] Example server
 
 Running tests
 ---
 
 ```bash
-tarantoolctl rocks make # optionally
-tarantool tests/runner.lua
+tarantoolctl rocks make
+tarantoolctl rocks install luatest 0.5.2
+.rocks/bin/luatest
 ```
 
 License

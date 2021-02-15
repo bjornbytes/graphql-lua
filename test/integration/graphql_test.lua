@@ -1086,3 +1086,46 @@ function g.test_null()
             end
     )
 end
+
+function g.test_validation_non_null_argument_error()
+    local function callback(_, _)
+        return nil
+    end
+
+    local query_schema = {
+        ['TestEntity'] = {
+            kind = types.string,
+            arguments = {
+                insert = types.inputObject({
+                    name = 'TestEntityInput',
+                    fields = {
+                        non_null = types.string.nonNull,
+                    }
+                }),
+            },
+            resolve = callback,
+        }
+    }
+
+    t.assert_error_msg_contains(
+            'Expected non-null',
+            function()
+                check_request([[
+                    query QueryFail {
+                        TestEntity(insert: {})
+                    }
+                ]], query_schema)
+            end
+    )
+
+    t.assert_error_msg_contains(
+            'Expected non-null',
+            function()
+                check_request([[
+                    query QueryFail {
+                        TestEntity(insert: {non_null: null})
+                    }
+                ]], query_schema)
+            end
+    )
+end

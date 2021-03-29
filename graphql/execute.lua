@@ -301,30 +301,35 @@ local function getFieldEntry(objectType, object, fields, context)
   }
 
   local resolvedObject, err = (fieldType.resolve or defaultResolver)(object, arguments, info)
-  if err ~= nil then
+  if resolvedObject == nil and err ~= nil then
     error(err)
   end
 
   local subSelections = mergeSelectionSets(fields)
   return completeValue(fieldType.kind, resolvedObject, subSelections, context,
     {fieldName = fieldName}
-  )
+  ), err
 end
 
 evaluateSelections = function(objectType, object, selections, context)
   local result = {}
+  local errors
+  local err
   local fields = collectFields(objectType, selections, {}, {}, context)
   for _, field in ipairs(fields) do
     assert(result[field.name] == nil,
       'two selections into the one field: ' .. field.name)
-    result[field.name] = getFieldEntry(objectType, object, {field.selection},
+    result[field.name], err = getFieldEntry(objectType, object, {field.selection},
                                        context)
-
+    if err ~= nil then
+        errors = errors or {}
+        table.insert(errors, err)
+    end
     if result[field.name] == nil then
         result[field.name] = box.NULL
     end
   end
-  return result
+  return result, errors
 end
 
 local function execute(schema, tree, rootValue, variables, operationName)

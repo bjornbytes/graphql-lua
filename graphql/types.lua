@@ -382,6 +382,9 @@ types.boolean = types.scalar({
   description = "The `Boolean` scalar type represents `true` or `false`.",
   serialize = coerceBoolean,
   parseLiteral = function(node)
+    if node.kind ~= 'boolean' then
+      error(('Could not coerce value "%s" with type "%s" to type boolean'):format(node.value, node.kind))
+    end
     return coerceBoolean(node.value)
   end,
   isValueOfTheType = isBoolean,

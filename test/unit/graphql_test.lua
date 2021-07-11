@@ -1028,3 +1028,32 @@ function g.test_types_for_different_schemas()
     t.assert_error_msg_contains('Field "string_2" is not defined on type "Object"',
             validate, schema_1, parse([[query { object_list { long_1 string_2 } }]]))
 end
+
+function g.test_boolean_coerce()
+    local query = types.object({
+        name = 'Query',
+        fields = {
+            test_boolean = {
+                kind = types.boolean.nonNull,
+                arguments = {
+                    value = types.boolean,
+                    non_null_value = types.boolean.nonNull,
+                }
+            },
+        }
+    })
+
+    local test_schema = schema.create({query = query})
+
+    validate(test_schema, parse([[ { test_boolean(value: true, non_null_value: true) } ]]))
+    validate(test_schema, parse([[ { test_boolean(value: false, non_null_value: false) } ]]))
+    validate(test_schema, parse([[ { test_boolean(value: null, non_null_value: true) } ]]))
+
+    -- Errors
+    t.assert_error_msg_contains('Could not coerce value "True" with type "enum" to type boolean',
+            validate, test_schema, parse([[ { test_boolean(value: True) } ]]))
+    t.assert_error_msg_contains('Could not coerce value "123" with type "int" to type boolean',
+            validate, test_schema, parse([[ { test_boolean(value: 123) } ]]))
+    t.assert_error_msg_contains('Could not coerce value "value" with type "string" to type boolean',
+            validate, test_schema, parse([[ { test_boolean(value: "value") } ]]))
+end

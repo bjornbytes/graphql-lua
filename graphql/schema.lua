@@ -50,6 +50,12 @@ function schema:generateTypeMap(node)
   node.fields = type(node.fields) == 'function' and node.fields() or node.fields
   self.typeMap[node.name] = node
 
+  if node.__type == 'Union' and node.types then
+    for _, type in ipairs(node.types) do
+      self:generateTypeMap(type)
+    end
+  end
+
   if node.__type == 'Object' and node.interfaces then
     for _, interface in ipairs(node.interfaces) do
       self:generateTypeMap(interface)
@@ -120,3 +126,4 @@ function schema:getPossibleTypes(abstractType)
 end
 
 return schema
+

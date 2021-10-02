@@ -33,7 +33,7 @@ local function initFields(kind, fields)
       description = field.description,
       deprecationReason = field.deprecationReason,
       arguments = field.arguments or {},
-      resolve = kind == 'Object' and field.resolve or nil
+      resolve = kind == 'Object' and field.resolve or nil,
     }
   end
 
@@ -45,7 +45,7 @@ function types.nonNull(kind)
 
   return {
     __type = 'NonNull',
-    ofType = kind
+    ofType = kind,
   }
 end
 
@@ -54,7 +54,7 @@ function types.list(kind)
 
   local instance = {
     __type = 'List',
-    ofType = kind
+    ofType = kind,
   }
 
   instance.nonNull = types.nonNull(instance)
@@ -123,7 +123,7 @@ function types.object(config)
     description = config.description,
     isTypeOf = config.isTypeOf,
     fields = fields,
-    interfaces = config.interfaces
+    interfaces = config.interfaces,
   }
 
   instance.nonNull = types.nonNull(instance)
@@ -152,7 +152,7 @@ function types.interface(config)
     name = config.name,
     description = config.description,
     fields = fields,
-    resolveType = config.resolveType
+    resolveType = config.resolveType,
   }
 
   instance.nonNull = types.nonNull(instance)
@@ -176,7 +176,7 @@ function types.enum(config)
       name = name,
       description = entry.description,
       deprecationReason = entry.deprecationReason,
-      value = entry.value
+      value = entry.value,
     }
   end
 
@@ -187,7 +187,7 @@ function types.enum(config)
     values = values,
     serialize = function(name)
       return instance.values[name] and instance.values[name].value or name
-    end
+    end,
   }
 
   instance.nonNull = types.nonNull(instance)
@@ -204,7 +204,7 @@ function types.union(config)
   local instance = {
     __type = 'Union',
     name = config.name,
-    types = config.types
+    types = config.types,
   }
 
   instance.nonNull = types.nonNull(instance)
@@ -222,7 +222,7 @@ function types.inputObject(config)
     field = field.__type and { kind = field } or field
     fields[fieldName] = {
       name = fieldName,
-      kind = field.kind
+      kind = field.kind,
     }
   end
 
@@ -230,7 +230,7 @@ function types.inputObject(config)
     __type = 'InputObject',
     name = config.name,
     description = config.description,
-    fields = fields
+    fields = fields,
   }
 
   types.get_env(config.schema)[config.name] = instance
@@ -418,7 +418,7 @@ function types.directive(config)
     onField = config.onField,
     onFragmentDefinition = config.onFragmentDefinition,
     onFragmentSpread = config.onFragmentSpread,
-    onInlineFragment = config.onInlineFragment
+    onInlineFragment = config.onInlineFragment,
   }
 
   return instance
@@ -432,7 +432,7 @@ types.include = types.directive({
   },
   onField = true,
   onFragmentSpread = true,
-  onInlineFragment = true
+  onInlineFragment = true,
 })
 
 types.skip = types.directive({
@@ -443,7 +443,7 @@ types.skip = types.directive({
   },
   onField = true,
   onFragmentSpread = true,
-  onInlineFragment = true
+  onInlineFragment = true,
 })
 
 types.resolve = function(type_name_or_obj, schema)

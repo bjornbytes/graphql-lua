@@ -7,11 +7,11 @@ local __Schema, __Directive, __DirectiveLocation, __Type, __Field, __InputValue,
 local function resolveArgs(field)
     local function transformArg(arg, name)
         if arg.__type then
-            return { kind = arg, name = name }
+            return { kind = arg, name = name, }
         elseif arg.name then
             return arg
         else
-            local result = { name = name }
+            local result = { name = name, }
 
             for k, v in pairs(arg) do
                 result[k] = v
@@ -39,7 +39,7 @@ __Schema = types.object({
         kind = types.nonNull(types.list(types.nonNull(__Type))),
         resolve = function(schema)
           return util.values(schema:getTypeMap())
-        end
+        end,
       },
 
       queryType = {
@@ -47,7 +47,7 @@ __Schema = types.object({
         kind = __Type.nonNull,
         resolve = function(schema)
           return schema:getQueryType()
-        end
+        end,
       },
 
       mutationType = {
@@ -55,7 +55,7 @@ __Schema = types.object({
         kind = __Type,
         resolve = function(schema)
           return schema:getMutationType()
-        end
+        end,
       },
 
       subscriptionType = {
@@ -63,7 +63,7 @@ __Schema = types.object({
         kind = __Type,
         resolve = function(_)
             return nil
-        end
+        end,
       },
 
 
@@ -72,7 +72,7 @@ __Schema = types.object({
         kind = types.nonNull(types.list(types.nonNull(__Directive))),
         resolve = function(schema)
           return schema.directives
-        end
+        end,
       }
     }
   end
@@ -111,12 +111,12 @@ __Directive = types.object({
           if directive.onInlineFragment then table.insert(res, 'INLINE_FRAGMENT') end
 
           return res
-        end
+        end,
       },
 
       args = {
         kind = types.nonNull(types.list(types.nonNull(__InputValue))),
-        resolve = resolveArgs
+        resolve = resolveArgs,
       }
     }
   end
@@ -133,33 +133,33 @@ __DirectiveLocation = types.enum({
   values = {
     QUERY = {
       value = 'QUERY',
-      description = 'Location adjacent to a query operation.'
+      description = 'Location adjacent to a query operation.',
     },
 
     MUTATION = {
       value = 'MUTATION',
-      description = 'Location adjacent to a mutation operation.'
+      description = 'Location adjacent to a mutation operation.',
     },
 
     FIELD = {
       value = 'FIELD',
-      description = 'Location adjacent to a field.'
+      description = 'Location adjacent to a field.',
     },
 
     FRAGMENT_DEFINITION = {
       value = 'FRAGMENT_DEFINITION',
-      description = 'Location adjacent to a fragment definition.'
+      description = 'Location adjacent to a fragment definition.',
     },
 
     FRAGMENT_SPREAD = {
       value = 'FRAGMENT_SPREAD',
-      description = 'Location adjacent to a fragment spread.'
+      description = 'Location adjacent to a fragment spread.',
     },
 
     INLINE_FRAGMENT = {
       value = 'INLINE_FRAGMENT',
-      description = 'Location adjacent to an inline fragment.'
-    }
+      description = 'Location adjacent to an inline fragment.',
+    },
   }
 })
 
@@ -205,7 +205,7 @@ __Type = types.object({
           end
 
           error('Unknown type ' .. kind)
-        end
+        end,
       },
 
       fields = {
@@ -213,7 +213,7 @@ __Type = types.object({
         arguments = {
           includeDeprecated = {
             kind = types.boolean,
-            defaultValue = false
+            defaultValue = false,
           }
         },
         resolve = function(kind, arguments)
@@ -233,7 +233,7 @@ __Type = types.object({
           if kind.__type == 'Object' then
             return kind.interfaces or {}
           end
-        end
+        end,
       },
 
       possibleTypes = {
@@ -242,7 +242,7 @@ __Type = types.object({
           if kind.__type == 'Interface' or kind.__type == 'Union' then
             return context.schema:getPossibleTypes(kind)
           end
-        end
+        end,
       },
 
       enumValues = {
@@ -256,7 +256,7 @@ __Type = types.object({
               return arguments.includeDeprecated or not value.deprecationReason
             end)
           end
-        end
+        end,
       },
 
       inputFields = {
@@ -265,12 +265,12 @@ __Type = types.object({
           if kind.__type == 'InputObject' then
             return util.values(kind.fields)
           end
-        end
+        end,
       },
 
       ofType = {
-        kind = __Type
-      }
+        kind = __Type,
+      },
     }
   end
 })
@@ -290,24 +290,24 @@ __Field = types.object({
 
       args = {
         kind = types.nonNull(types.list(types.nonNull(__InputValue))),
-        resolve = resolveArgs
+        resolve = resolveArgs,
       },
 
       type = {
         kind = __Type.nonNull,
         resolve = function(field)
           return field.kind
-        end
+        end,
       },
 
       isDeprecated = {
         kind = types.boolean.nonNull,
         resolve = function(field)
           return field.deprecationReason ~= nil
-        end
+        end,
       },
 
-      deprecationReason = types.string
+      deprecationReason = types.string,
     }
   end
 })
@@ -330,7 +330,7 @@ __InputValue = types.object({
         kind = types.nonNull(__Type),
         resolve = function(field)
           return field.kind
-        end
+        end,
       },
 
       defaultValue = {
@@ -338,8 +338,8 @@ __InputValue = types.object({
         description = 'A GraphQL-formatted string representing the default value for this input value.',
         resolve = function(inputVal)
           return inputVal.defaultValue and tostring(inputVal.defaultValue) -- TODO improve serialization a lot
-        end
-      }
+        end,
+      },
     }
   end
 })
@@ -361,7 +361,7 @@ __EnumValue = types.object({
         kind = types.boolean.nonNull,
         resolve = function(enumValue) return enumValue.deprecationReason ~= nil end
       },
-      deprecationReason = types.string
+      deprecationReason = types.string,
     }
   end
 })
@@ -372,43 +372,43 @@ __TypeKind = types.enum({
   values = {
     SCALAR = {
       value = 'SCALAR',
-      description = 'Indicates this type is a scalar.'
+      description = 'Indicates this type is a scalar.',
     },
 
     OBJECT = {
       value = 'OBJECT',
-      description = 'Indicates this type is an object. `fields` and `interfaces` are valid fields.'
+      description = 'Indicates this type is an object. `fields` and `interfaces` are valid fields.',
     },
 
     INTERFACE = {
       value = 'INTERFACE',
-      description = 'Indicates this type is an interface. `fields` and `possibleTypes` are valid fields.'
+      description = 'Indicates this type is an interface. `fields` and `possibleTypes` are valid fields.',
     },
 
     UNION = {
       value = 'UNION',
-      description = 'Indicates this type is a union. `possibleTypes` is a valid field.'
+      description = 'Indicates this type is a union. `possibleTypes` is a valid field.',
     },
 
     ENUM = {
       value = 'ENUM',
-      description = 'Indicates this type is an enum. `enumValues` is a valid field.'
+      description = 'Indicates this type is an enum. `enumValues` is a valid field.',
     },
 
     INPUT_OBJECT = {
       value = 'INPUT_OBJECT',
-      description = 'Indicates this type is an input object. `inputFields` is a valid field.'
+      description = 'Indicates this type is an input object. `inputFields` is a valid field.',
     },
 
     LIST = {
       value = 'LIST',
-      description = 'Indicates this type is a list. `ofType` is a valid field.'
+      description = 'Indicates this type is a list. `ofType` is a valid field.',
     },
 
     NON_NULL = {
       value = 'NON_NULL',
-      description = 'Indicates this type is a non-null. `ofType` is a valid field.'
-    }
+      description = 'Indicates this type is a non-null. `ofType` is a valid field.',
+    },
   }
 })
 
@@ -419,7 +419,7 @@ local Schema = {
   arguments = {},
   resolve = function(_, _, info)
     return info.schema
-  end
+  end,
 }
 
 local Type = {
@@ -427,11 +427,11 @@ local Type = {
   kind = __Type,
   description = 'Request the type information of a single type.',
   arguments = {
-    name = types.string.nonNull
+    name = types.string.nonNull,
   },
   resolve = function(_, arguments, info)
     return info.schema:getType(arguments.name)
-  end
+  end,
 }
 
 local TypeName = {
@@ -441,7 +441,7 @@ local TypeName = {
   arguments = {},
   resolve = function(_, _, info)
     return info.parentType.name
-  end
+  end,
 }
 
 return {
@@ -458,6 +458,6 @@ return {
   fieldMap = {
     __schema = Schema,
     __type = Type,
-    __typename = TypeName
-  }
+    __typename = TypeName,
+  },
 }

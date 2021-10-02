@@ -167,7 +167,7 @@ local function collectFields(objectType, selections, visitedFragments, result, c
 end
 
 local evaluateSelections
-local serializemap = {__serialize='map'}
+local serializemap = {__serialize='map',}
 
 local function completeValue(fieldType, result, subSelections, context, opts)
   local fieldName = opts and opts.fieldName or '???'
@@ -284,7 +284,7 @@ local function getFieldEntry(objectType, object, fields, context)
       end
   end
 
-  arguments = setmetatable(arguments, {__index=positions})
+  arguments = setmetatable(arguments, {__index=positions,})
 
   local info = {
     context = context,
@@ -307,7 +307,7 @@ local function getFieldEntry(objectType, object, fields, context)
 
   local subSelections = mergeSelectionSets(fields)
   return completeValue(fieldType.kind, resolvedObject, subSelections, context,
-    {fieldName = fieldName}
+    {fieldName = fieldName,}
   ), err
 end
 
@@ -346,4 +346,4 @@ local function execute(schema, tree, rootValue, variables, operationName)
 end
 
 
-return {execute=execute}
+return {execute=execute,}

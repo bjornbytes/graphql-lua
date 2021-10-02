@@ -48,7 +48,7 @@ local visitors = {
     end,
 
     children = function(node)
-      return { node.selectionSet }
+      return { node.selectionSet, }
     end,
 
     rules = {
@@ -59,7 +59,7 @@ local visitors = {
       rules.variableDefaultValuesHaveCorrectType,
       exit = {
         rules.variablesAreUsed,
-        rules.variablesAreDefined
+        rules.variablesAreDefined,
       }
     }
   },
@@ -69,7 +69,7 @@ local visitors = {
       return node.selections
     end,
 
-    rules = { rules.unambiguousSelections }
+    rules = { rules.unambiguousSelections, }
   },
 
   field = {
@@ -120,7 +120,7 @@ local visitors = {
       rules.argumentsOfCorrectType,
       rules.requiredArgumentsPresent,
       rules.directivesAreDefined,
-      rules.variableUsageAllowed
+      rules.variableUsageAllowed,
     }
   },
 
@@ -141,14 +141,14 @@ local visitors = {
 
     children = function(node, _)
       if node.selectionSet then
-        return {node.selectionSet}
+        return {node.selectionSet,}
       end
     end,
 
     rules = {
       rules.fragmentHasValidType,
       rules.fragmentSpreadIsPossible,
-      rules.directivesAreDefined
+      rules.directivesAreDefined,
     }
   },
 
@@ -213,7 +213,7 @@ local visitors = {
       rules.fragmentSpreadTargetDefined,
       rules.fragmentSpreadIsPossible,
       rules.directivesAreDefined,
-      rules.variableUsageAllowed
+      rules.variableUsageAllowed,
     }
   },
 
@@ -240,7 +240,7 @@ local visitors = {
     rules = {
       rules.fragmentHasValidType,
       rules.fragmentDefinitionHasNoCycles,
-      rules.directivesAreDefined
+      rules.directivesAreDefined,
     }
   },
 
@@ -267,7 +267,7 @@ local visitors = {
       end)
     end,
 
-    rules = { rules.uniqueInputObjectFields }
+    rules = { rules.uniqueInputObjectFields, }
   },
 
   inputObject = {
@@ -277,7 +277,7 @@ local visitors = {
       end)
     end,
 
-    rules = { rules.uniqueInputObjectFields }
+    rules = { rules.uniqueInputObjectFields, }
   },
 
   list = {
@@ -289,13 +289,13 @@ local visitors = {
   variable = {
     enter = function(node, context)
       context.variableReferences[node.name.value] = true
-    end
+    end,
   },
 
   directive = {
     children = function(node, _)
       return node.arguments
-    end
+    end,
   }
 }
 
@@ -349,4 +349,4 @@ local function validate(schema, tree)
   return visit(tree)
 end
 
-return {validate=validate}
+return {validate=validate,}

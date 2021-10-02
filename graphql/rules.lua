@@ -162,7 +162,7 @@ function rules.unambiguousSelections(node, context)
         local fieldEntry = {
           parent = parentType,
           field = selection,
-          definition = definition
+          definition = definition,
         }
 
         validateField(key, fieldEntry)

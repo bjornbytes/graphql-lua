@@ -1,0 +1,6 @@
+statsfile = 'tmp/luacov.stats.out'
+reportfile = 'tmp/luacov.report.out'
+exclude = {
+    '/test/',
+    '/tmp/',
+}

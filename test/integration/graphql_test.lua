@@ -1158,4 +1158,49 @@ function g.test_both_data_and_error_result()
         {message = 'Simple error A'},
         {message = 'Simple error B'},
     })
+
+    query = [[{
+        prefix {
+            test_A: test(arg: "A")
+            test_B: test(arg: "B")
+        }
+    }]]
+
+    local function callback_external()
+        return {}, {message = 'Simple error from external resolver'}
+    end
+
+    local function callback_internal(_, args)
+        return args[1].value, {message = 'Simple error from internal resolver ' .. args[1].value}
+    end
+
+    query_schema = {
+        ['prefix'] = {
+            kind = types.object({
+                name = 'prefix',
+                fields = {
+                    ['test'] = {
+                        kind = types.string.nonNull,
+                        arguments = {
+                            arg = types.string.nonNull,
+                            arg2 = types.string,
+                            arg3 = types.int,
+                            arg4 = types.long,
+                        },
+                        resolve = callback_internal,
+                    }
+                },
+            }),
+            arguments = {},
+            resolve = callback_external,
+        }
+    }
+
+    data, errors = check_request(query, query_schema)
+    t.assert_equals(data, {prefix = {test_A = 'A', test_B = 'B'}})
+    t.assert_equals(errors,  {
+        {message = "Simple error from internal resolver A"},
+        {message = "Simple error from internal resolver B"},
+        {message = "Simple error from external resolver"},
+    }, "Errors from each resolver were returned")
 end

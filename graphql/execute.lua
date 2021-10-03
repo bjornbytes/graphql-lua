@@ -313,7 +313,6 @@ end
 
 evaluateSelections = function(objectType, object, selections, context)
   local result = {}
-  local errors
   local err
   local fields = collectFields(objectType, selections, {}, {}, context)
   for _, field in ipairs(fields) do
@@ -322,14 +321,14 @@ evaluateSelections = function(objectType, object, selections, context)
     result[field.name], err = getFieldEntry(objectType, object, {field.selection},
                                        context)
     if err ~= nil then
-        errors = errors or {}
-        table.insert(errors, err)
+        context.errors = context.errors or {}
+        table.insert(context.errors, err)
     end
     if result[field.name] == nil then
         result[field.name] = box.NULL
     end
   end
-  return result, errors
+  return result, context.errors
 end
 
 local function execute(schema, tree, rootValue, variables, operationName)

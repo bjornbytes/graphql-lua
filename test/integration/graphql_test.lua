@@ -4,6 +4,7 @@ local schema = require('graphql.schema')
 local parse = require('graphql.parse')
 local validate = require('graphql.validate')
 local execute = require('graphql.execute')
+local util = require('graphql.util')
 local introspection = require('test.integration.introspection')
 
 local t = require('luatest')
@@ -1423,5 +1424,88 @@ function g.test_custom_directives()
 
     data, errors = check_request(query, query_schema, nil, directives)
     t.assert_equals(data, { test_G = '{"num":5,"str":"news"}' })
+    t.assert_equals(errors, nil)
+end
+
+function g.test_specifiedByUrl_scalar_field()
+    local function callback(_, _)
+        return nil
+    end
+
+    local custom_scalar = types.scalar({
+        name = 'CustomInt',
+        description = "The `CustomInt` scalar type represents non-fractional signed whole numeric values. " ..
+                      "Int can represent values from -(2^31) to 2^31 - 1, inclusive.",
+        serialize = function(value)
+            return value
+        end,
+        parseLiteral = function(node)
+            return node.value
+        end,
+        isValueOfTheType = function(_)
+            return true
+        end,
+        specifiedByUrl = 'http://localhost',
+    })
+
+    local query_schema = {
+        ['test'] = {
+            kind = types.string.nonNull,
+            arguments = {
+                arg = custom_scalar,
+            },
+            resolve = callback,
+        }
+    }
+
+    local data, errors = check_request(introspection.query, query_schema)
+    local CustomInt_schema = util.find_by_name(data.__schema.types, 'CustomInt')
+    t.assert_type(CustomInt_schema, 'table', 'CustomInt schema found on introspection')
+    t.assert_equals(CustomInt_schema.specifiedByUrl, 'http://localhost')
+    t.assert_equals(errors, nil)
+end
+
+function g.test_specifiedBy_directive()
+    local function callback(_, args, info)
+        local v = args[1].value
+        local dir = info.directives
+        if dir ~= nil and dir.specifiedBy ~= nil then
+            return { value = v, url = dir.specifiedBy.url }
+        end
+
+        return { value = v }
+    end
+
+    local custom_scalar = types.scalar({
+        name = 'CustomInt',
+        description = "The `CustomInt` scalar type represents non-fractional signed whole numeric values. " ..
+                      "Int can represent values from -(2^31) to 2^31 - 1, inclusive.",
+        serialize = function(value)
+            return value
+        end,
+        parseLiteral = function(node)
+            return node.value
+        end,
+        isValueOfTheType = function(_)
+            return true
+        end,
+    })
+
+    local query_schema = {
+        ['test'] = {
+            kind = custom_scalar,
+            arguments = {
+                arg = custom_scalar,
+            },
+            resolve = callback,
+        }
+    }
+
+    local query = [[query {
+        test_A: test(arg: 1)@specifiedBy(url: "http://localhost")
+    }]]
+
+    local data, errors = check_request(query, query_schema)
+    t.assert_equals(data, { test_A = { url = "http://localhost", value = "1" } })
     t.assert_equals(errors, nil)
 end

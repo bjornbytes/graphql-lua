@@ -1069,3 +1069,22 @@ function g.test_util_map_name()
     res = util.map_name({ entry_a = { name = 'a' }, entry_b = { name = 'b' }, }, function(v) return v end)
     t.assert_equals(res, {a = {name = 'a'}, b = {name = 'b'}})
 end
+
+function g.test_util_find_by_name()
+    local res = util.find_by_name({}, 'var')
+    t.assert_equals(res, nil)
+
+    res = util.find_by_name({ { name = 'avr' } }, 'var')
+    t.assert_equals(res, nil)
+
+    res = util.find_by_name({ { name = 'avr', value = 1 }, { name = 'var', value = 2 } }, 'var')
+    t.assert_equals(res, { name = 'var', value = 2 })
+
+    res = util.find_by_name(
+        {
+            entry1 = { name = 'avr', value = 1 },
+            entry2 = { name = 'var', value = 2 }
+        },
+        'var')
+    t.assert_equals(res, { name = 'var', value = 2 })
+end

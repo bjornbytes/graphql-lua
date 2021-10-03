@@ -27,6 +27,13 @@ local function find(t, fn)
   end
 end
 
+local function find_by_name(t, name)
+  for _, v in pairs(t or {}) do
+    if v.name == name then return v end
+  end
+  return nil
+end
+
 local function filter(t, fn)
   local res = {}
   for _,v in pairs(t) do
@@ -282,6 +289,7 @@ return {
   map = map,
   map_name = map_name,
   find = find,
+  find_by_name = find_by_name,
   filter = filter,
   values = values,
   compose = compose,

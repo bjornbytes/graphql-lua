@@ -97,6 +97,7 @@ function types.scalar(config)
     parseValue = config.parseValue,
     parseLiteral = config.parseLiteral,
     isValueOfTheType = config.isValueOfTheType,
+    specifiedByUrl = config.specifiedByUrl,
   }
 
   instance.nonNull = types.nonNull(instance)
@@ -457,6 +458,15 @@ types.skip = types.directive({
   onField = true,
   onFragmentSpread = true,
   onInlineFragment = true,
+})
+
+types.specifiedBy = types.directive({
+  name = 'specifiedBy',
+  description = 'Custom scalar specification.',
+  arguments = {
+    ['url'] = { kind = types.string.nonNull, description = 'Scalar specification URL.', }
+  },
+  onScalar = true,
 })
 
 types.resolve = function(type_name_or_obj, schema)

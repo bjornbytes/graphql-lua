@@ -7,7 +7,7 @@ local __Schema, __Directive, __DirectiveLocation, __Type, __Field, __InputValue,
 local function resolveArgs(field)
     local function transformArg(arg, name)
         if arg.__type then
-            return { kind = arg, name = name }
+            return { kind = arg, name = name, description = arg.description }
         elseif arg.name then
             return arg
         else

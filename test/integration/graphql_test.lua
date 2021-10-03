@@ -4,21 +4,23 @@ local schema = require('graphql.schema')
 local parse = require('graphql.parse')
 local validate = require('graphql.validate')
 local execute = require('graphql.execute')
+local introspection = require('test.integration.introspection')
 
 local t = require('luatest')
 local g = t.group('integration')
 
-local function check_request(query, query_schema, opts)
+local function check_request(query, query_schema, mutation_schema, directives, opts)
     opts = opts or {}
     local root = {
         query = types.object({
             name = 'Query',
-            fields = query_schema,
+            fields = query_schema or {},
         }),
         mutation = types.object({
             name = 'Mutation',
-            fields = {},
+            fields = mutation_schema or {},
         }),
+        directives = directives,
     }
 
     local compiled_schema = schema.create(root, 'default')
@@ -111,7 +113,7 @@ function g.test_variables()
     }
 
     -- Positive test
-    t.assert_equals(check_request(query, query_schema, {variables = variables}), {test = 'B22'})
+    t.assert_equals(check_request(query, query_schema, nil, nil, {variables = variables}), {test = 'B22'})
 
     -- Negative tests
     local query = [[
@@ -121,7 +123,7 @@ function g.test_variables()
     t.assert_error_msg_equals(
             'Variable "arg2" expected to be non-null',
             function()
-                check_request(query, query_schema, {variables = {}})
+                check_request(query, query_schema, nil, nil, {variables = {}})
             end
     )
 
@@ -134,7 +136,7 @@ function g.test_variables()
                     ' the variable type "String" is not compatible' ..
                     ' with the argument type "NonNull(String)"',
             function()
-                check_request(query, query_schema, {variables = {}})
+                check_request(query, query_schema, nil, nil, {variables = {}})
             end
     )
 
@@ -157,7 +159,7 @@ function g.test_variables()
             function()
                 check_request([[
                     query { test(arg: "") }
-                ]], query_schema, { variables = {unknown_arg = ''}})
+                ]], query_schema, nil, nil, { variables = {unknown_arg = ''}})
             end
     )
 
@@ -336,7 +338,7 @@ function g.test_enum_input()
         query($arg: simple_input_object) {
             simple_enum(arg: $arg)
         }
-    ]], query_schema, {variables = {arg = {field = 'a'}}}), {simple_enum = 'a'})
+    ]], query_schema, nil, nil, {variables = {arg = {field = 'a'}}}), {simple_enum = 'a'})
 
     t.assert_error_msg_equals(
             'Wrong variable "arg.field" for the Enum "simple_enum" with value "d"',
@@ -345,7 +347,7 @@ function g.test_enum_input()
                     query($arg: simple_input_object) {
                         simple_enum(arg: $arg)
                     }
-                ]], query_schema, {variables = {arg = {field = 'd'}}})
+                ]], query_schema, nil, nil, {variables = {arg = {field = 'd'}}})
             end
     )
 end
@@ -459,7 +461,7 @@ function g.test_nested_input()
                 servers: [{ field: $field }]
             )
         }
-    ]], query_schema, {variables = {field = 'echo'}}), {test_nested_InputObject = 'echo'})
+    ]], query_schema, nil, nil, {variables = {field = 'echo'}}), {test_nested_InputObject = 'echo'})
 
     t.assert_error_msg_equals(
             'Unused variable "field"',
@@ -470,7 +472,7 @@ function g.test_nested_input()
                             servers: [{ field: "not-variable" }]
                         )
                     }
-                ]], query_schema, {variables = {field = 'echo'}})
+                ]], query_schema, nil, nil, {variables = {field = 'echo'}})
             end
     )
 
@@ -480,7 +482,7 @@ function g.test_nested_input()
                 servers: [$field]
             )
         }
-    ]], query_schema, {variables = {field = 'echo'}}), {test_nested_list = 'echo'})
+    ]], query_schema, nil, nil, {variables = {field = 'echo'}}), {test_nested_list = 'echo'})
 
     t.assert_equals(check_request([[
         query($field: String! $field2: String! $upvalue: String!) {
@@ -492,7 +494,7 @@ function g.test_nested_input()
                 }
             )
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {field = 'echo', field2 = 'field', upvalue = 'upvalue'},
     }), {test_nested_InputObject_complex = 'upvalue+field+echo'})
 end
@@ -599,7 +601,7 @@ function g.test_custom_type_scalar_variables()
                 field: $field
             )
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {field = '{"test": 123}'},
     }), {test_json_type = '{"test":123}'})
 
@@ -609,7 +611,7 @@ function g.test_custom_type_scalar_variables()
                 field: $field
             )
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {field = box.NULL},
     }), {test_json_type = 'null'})
 
@@ -619,7 +621,7 @@ function g.test_custom_type_scalar_variables()
                 field: "null"
             )
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {},
     }), {test_json_type = 'null'})
 
@@ -629,7 +631,7 @@ function g.test_custom_type_scalar_variables()
                 field: $field
             )
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {field = 'echo'},
     }), {test_custom_type_scalar = 'echo'})
 
@@ -644,7 +646,7 @@ function g.test_custom_type_scalar_variables()
                             field: $field
                         )
                     }
-                ]], query_schema, {variables = {field = 'echo'}})
+                ]], query_schema, nil, nil, {variables = {field = 'echo'}})
             end
     )
 
@@ -654,7 +656,7 @@ function g.test_custom_type_scalar_variables()
                 fields: [$field]
             )
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {field = 'echo'},
     }), {test_custom_type_scalar_list = 'echo'})
 
@@ -683,7 +685,7 @@ function g.test_custom_type_scalar_variables()
                             fields: [$field]
                         )
                     }
-                ]], query_schema, {variables = {field = 'echo'}})
+                ]], query_schema, nil, nil, {variables = {field = 'echo'}})
             end
     )
 
@@ -693,7 +695,7 @@ function g.test_custom_type_scalar_variables()
                 fields: $fields
             )
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {fields = {'echo'}},
     }), {test_custom_type_scalar_list = 'echo'})
 
@@ -708,7 +710,7 @@ function g.test_custom_type_scalar_variables()
                             fields: $fields
                         )
                     }
-                ]], query_schema, {variables = {fields = {'echo'}}})
+                ]], query_schema, nil, nil, {variables = {fields = {'echo'}}})
             end
     )
 
@@ -723,7 +725,7 @@ function g.test_custom_type_scalar_variables()
                             fields: $fields
                         )
                     }
-                ]], query_schema, {variables = {fields = {'echo'}}})
+                ]], query_schema, nil, nil, {variables = {fields = {'echo'}}})
             end
     )
 
@@ -733,7 +735,7 @@ function g.test_custom_type_scalar_variables()
                 object: { nested_object: { field: $field } }
             )
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {field = 'echo'},
     }), {test_custom_type_scalar_inputObject = 'echo'})
 
@@ -748,7 +750,7 @@ function g.test_custom_type_scalar_variables()
                             object: { nested_object: { field: $field } }
                         )
                     }
-                ]], query_schema, {variables = {fields = {'echo'}}})
+                ]], query_schema, nil, nil, {variables = {fields = {'echo'}}})
             end
     )
 end
@@ -960,7 +962,7 @@ function g.test_default_values()
         query($arg: String = "default_value") {
             test_default_value(arg: $arg)
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {},
     }), {test_default_value = 'default_value'})
 
@@ -968,7 +970,7 @@ function g.test_default_values()
         query($arg: String = "default_value") {
             test_default_value(arg: $arg)
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {arg = box.NULL},
     }), {test_default_value = 'nil'})
 
@@ -976,7 +978,7 @@ function g.test_default_values()
         query($arg: [String] = ["default_value"]) {
             test_default_list(arg: $arg)
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {},
     }), {test_default_list = 'default_value'})
 
@@ -984,7 +986,7 @@ function g.test_default_values()
         query($arg: [String] = ["default_value"]) {
             test_default_list(arg: $arg)
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {arg = box.NULL},
     }), {test_default_list = 'nil'})
 
@@ -992,7 +994,7 @@ function g.test_default_values()
         query($arg: default_input_object = {field: "default_value"}) {
             test_default_object(arg: $arg)
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {},
     }), {test_default_object = 'default_value'})
 
@@ -1000,7 +1002,7 @@ function g.test_default_values()
         query($arg: default_input_object = {field: "default_value"}) {
             test_default_object(arg: $arg)
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {arg = box.NULL},
     }), {test_default_object = 'nil'})
 
@@ -1010,7 +1012,7 @@ function g.test_default_values()
                 field: $field
             )
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {},
     }), {test_json_type = '{"test":123}'})
 
@@ -1018,7 +1020,7 @@ function g.test_default_values()
         query($arg: String = null, $is_null: Boolean) {
             test_null(arg: $arg is_null: $is_null)
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {arg = 'abc'},
     }), {test_null = 'abc'})
 
@@ -1026,7 +1028,7 @@ function g.test_default_values()
         query($arg: String = null, $is_null: Boolean) {
             test_null(arg: $arg is_null: $is_null)
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {arg = box.NULL, is_null = true},
     }), {test_null = 'is_null'})
 
@@ -1034,7 +1036,7 @@ function g.test_default_values()
         query($arg: String = null, $is_null: Boolean) {
             test_null(arg: $arg is_null: $is_null)
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {is_null = false},
     }), {test_null = 'not is_null'})
 end
@@ -1071,7 +1073,7 @@ function g.test_null()
         query {
             test_null_nullable(arg: null)
         }
-    ]], query_schema, {
+    ]], query_schema, nil, nil, {
         variables = {},
     }), {test_null_nullable = 'nil'})
 
@@ -1158,4 +1160,143 @@ function g.test_both_data_and_error_result()
         {message = 'Simple error A'},
         {message = 'Simple error B'},
     })
+end
+
+function g.test_custom_directives()
+    local function callback(_, _, info)
+        return require('json').encode(info.directives)
+    end
+
+    local query_schema = {
+        ['prefix'] = {
+            kind = types.object({
+                name = 'prefix',
+                fields = {
+                    ['test'] = {
+                        kind = types.string,
+                        arguments = {
+                            arg = types.string.nonNull,
+                            arg2 = types.string,
+                            arg3 = types.int,
+                            arg4 = types.long,
+                        },
+                        resolve = callback,
+                    }
+                },
+            }),
+            arguments = {},
+            resolve = function()
+                return {}
+            end,
+        }
+    }
+
+    local directives = {
+        types.directive({
+            name = 'custom',
+            arguments = {
+                arg = types.string.nonNull,
+            },
+            onQuery = true,
+            onMutation = true,
+            onField = true,
+            onFragmentDefinition = true,
+            onFragmentSpread = true,
+            onInlineFragment = true,
+            onVariableDefinition = true,
+            onSchema = true,
+            onScalar = true,
+            onObject = true,
+            onFieldDefinition = true,
+            onArgumentDefinition = true,
+            onInterface = true,
+            onUnion = true,
+            onEnum = true,
+            onEnumValue = true,
+            onInputObject = true,
+            onInputFieldDefinition = true,
+            isRepeatable = true,
+        })
+    }
+
+    local simple_query = [[query TEST{
+        prefix {
+            test_A: test(arg: "A")@custom(arg: "a")
+        }
+    }]]
+    local data, errors = check_request(simple_query, query_schema, nil, directives)
+    t.assert_equals(data, { prefix = { test_A = '{"custom":{"arg":"a"}}' }})
+    t.assert_equals(errors, nil)
+
+    local var_query = [[query TEST($arg: String){
+        prefix {
+            test_B: test(arg: "B")@custom(arg: $arg)
+        }
+    }]]
+    data, errors = check_request(var_query, query_schema, nil, directives,
+        {variables = {arg = 'echo'}})
+    t.assert_equals(data, { prefix = { test_B = '{"custom":{"arg":"echo"}}' }})
+    t.assert_equals(errors, nil)
+end
+
+function g.test_introspection()
+    local function callback(_, _)
+        return nil
+    end
+
+    local query_schema = {
+        ['test'] = {
+            kind = types.string.nonNull,
+            arguments = {
+                arg = types.string.nonNull,
+                arg2 = types.string,
+                arg3 = types.int,
+                arg4 = types.long,
+            },
+            resolve = callback,
+        }
+    }
+
+    local mutation_schema = {
+        ['test_mutation'] = {
+            kind = types.string.nonNull,
+            arguments = {
+                arg = types.string.nonNull,
+                arg2 = types.string,
+                arg3 = types.int,
+                arg4 = types.long,
+            },
+            resolve = callback,
+        }
+    }
+
+    local directives = {
+        types.directive({
+            name = 'custom',
+            arguments = {},
+            onQuery = true,
+            onMutation = true,
+            onField = true,
+            onFragmentDefinition = true,
+            onFragmentSpread = true,
+            onInlineFragment = true,
+            onVariableDefinition = true,
+            onSchema = true,
+            onScalar = true,
+            onObject = true,
+            onFieldDefinition = true,
+            onArgumentDefinition = true,
+            onInterface = true,
+            onUnion = true,
+            onEnum = true,
+            onEnumValue = true,
+            onInputObject = true,
+            onInputFieldDefinition = true,
+            isRepeatable = true,
+        })
+    }
+
+    local data, errors = check_request(introspection.query, query_schema, mutation_schema, directives)
+    t.assert_type(data, 'table')
+    t.assert_equals(errors, nil)
 end

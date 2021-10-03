@@ -109,6 +109,18 @@ __Directive = types.object({
           if directive.onFragmentDefinition then table.insert(res, 'FRAGMENT_DEFINITION') end
           if directive.onFragmentSpread then table.insert(res, 'FRAGMENT_SPREAD') end
           if directive.onInlineFragment then table.insert(res, 'INLINE_FRAGMENT') end
+          if directive.onVariableDefinition then table.insert(res, 'VARIABLE_DEFINITION') end
+          if directive.onSchema then table.insert(res, 'SCHEMA') end
+          if directive.onScalar then table.insert(res, 'SCALAR') end
+          if directive.onObject then table.insert(res, 'OBJECT') end
+          if directive.onFieldDefinition then table.insert(res, 'FIELD_DEFINITION') end
+          if directive.onArgumentDefinition then table.insert(res, 'ARGUMENT_DEFINITION') end
+          if directive.onInterface then table.insert(res, 'INTERFACE') end
+          if directive.onUnion then table.insert(res, 'UNION') end
+          if directive.onEnum then table.insert(res, 'ENUM') end
+          if directive.onEnumValue then table.insert(res, 'ENUM_VALUE') end
+          if directive.onInputObject then table.insert(res, 'INPUT_OBJECT') end
+          if directive.onInputFieldDefinition then table.insert(res, 'INPUT_FIELD_DEFINITION') end
 
           return res
         end,
@@ -117,6 +129,13 @@ __Directive = types.object({
       args = {
         kind = types.nonNull(types.list(types.nonNull(__InputValue))),
         resolve = resolveArgs,
+      },
+
+      isRepeatable = {
+        kind = types.nonNull(types.boolean),
+        resolve = function(directive)
+          return directive.isRepeatable == true
+        end,
       },
     }
   end,
@@ -159,6 +178,66 @@ __DirectiveLocation = types.enum({
     INLINE_FRAGMENT = {
       value = 'INLINE_FRAGMENT',
       description = 'Location adjacent to an inline fragment.',
+    },
+
+    VARIABLE_DEFINITION = {
+      value = 'VARIABLE_DEFINITION',
+      description = 'Location adjacent to a variable definition.',
+    },
+
+    SCHEMA = {
+      value = 'SCHEMA',
+      description = 'Location adjacent to schema.',
+    },
+
+    SCALAR = {
+      value = 'SCALAR',
+      description = 'Location adjacent to a scalar.',
+    },
+
+    OBJECT = {
+      value = 'OBJECT',
+      description = 'Location adjacent to an object.',
+    },
+
+    FIELD_DEFINITION = {
+      value = 'FIELD_DEFINITION',
+      description = 'Location adjacent to a field definition.',
+    },
+
+    ARGUMENT_DEFINITION = {
+      value = 'ARGUMENT_DEFINITION',
+      description = 'Location adjacent to an argument definition.',
+    },
+
+    INTERFACE = {
+      value = 'INTERFACE',
+      description = 'Location adjacent to an interface.',
+    },
+
+    UNION = {
+      value = 'UNION',
+      description = 'Location adjacent to an union.',
+    },
+
+    ENUM = {
+      value = 'ENUM',
+      description = 'Location adjacent to an enum.',
+    },
+
+    ENUM_VALUE = {
+      value = 'ENUM_VALUE',
+      description = 'Location adjacent to an enum value.',
+    },
+
+    INPUT_OBJECT = {
+      value = 'INPUT_OBJECT',
+      description = 'Location adjacent to an input object.',
+    },
+
+    INPUT_FIELD_DEFINITION = {
+      value = 'INPUT_FIELD_DEFINITION',
+      description = 'Location adjacent to an input field definition.',
     },
   },
 })

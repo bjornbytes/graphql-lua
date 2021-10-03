@@ -419,6 +419,19 @@ function types.directive(config)
     onFragmentDefinition = config.onFragmentDefinition,
     onFragmentSpread = config.onFragmentSpread,
     onInlineFragment = config.onInlineFragment,
+    onVariableDefinition = config.onVariableDefinition,
+    onSchema = config.onSchema,
+    onScalar = config.onScalar,
+    onObject = config.onObject,
+    onFieldDefinition = config.onFieldDefinition,
+    onArgumentDefinition = config.onArgumentDefinition,
+    onInterface = config.onInterface,
+    onUnion = config.onUnion,
+    onEnum = config.onEnum,
+    onEnumValue = config.onEnumValue,
+    onInputObject = config.onInputObject,
+    onInputFieldDefinition = config.onInputFieldDefinition,
+    isRepeatable = config.isRepeatable or false,
   }
 
   return instance

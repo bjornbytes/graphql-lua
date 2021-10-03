@@ -1,10 +1,11 @@
 local t = require('luatest')
-local g = t.group()
+local g = t.group('unit')
 
 local parse = require('graphql.parse').parse
 local types = require('graphql.types')
 local schema = require('graphql.schema')
 local validate = require('graphql.validate').validate
+local util = require('graphql.util')
 
 function g.test_parse_comments()
     t.assert_error(parse('{a(b:"#")}').definitions, {})
@@ -1056,4 +1057,15 @@ function g.test_boolean_coerce()
             validate, test_schema, parse([[ { test_boolean(value: 123) } ]]))
     t.assert_error_msg_contains('Could not coerce value "value" with type "string" to type boolean',
             validate, test_schema, parse([[ { test_boolean(value: "value") } ]]))
+end
+
+function g.test_util_map_name()
+    local res = util.map_name(nil, nil)
+    t.assert_equals(res, {})
+
+    res = util.map_name({ { name = 'a' }, { name = 'b' }, }, function(v) return v end)
+    t.assert_equals(res, {a = {name = 'a'}, b = {name = 'b'}})
+
+    res = util.map_name({ entry_a = { name = 'a' }, entry_b = { name = 'b' }, }, function(v) return v end)
+    t.assert_equals(res, {a = {name = 'a'}, b = {name = 'b'}})
 end

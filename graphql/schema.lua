@@ -99,6 +99,28 @@ end
 function schema:generateDirectiveMap()
   for _, directive in ipairs(self.directives) do
     self.directiveMap[directive.name] = directive
+    if directive.arguments ~= nil then
+      for name, argument in pairs(directive.arguments) do
+
+          -- BEGIN_HACK: resolve type names to real types
+          if type(argument) == 'string' then
+            argument = types.resolve(argument, self.name)
+            directive.arguments[name] = argument
+          end
+
+          if type(argument.kind) == 'string' then
+            argument.kind = types.resolve(argument.kind, self.name)
+          end
+          -- END_HACK: resolve type names to real types
+
+          local argumentType = argument.__type and argument or argument.kind
+          if argumentType == nil then
+            error('Must supply type for argument "' .. name .. '" on "' .. directive.name .. '"')
+          end
+          argumentType.defaultValue = argument.defaultValue
+          self:generateTypeMap(argumentType)
+      end
+    end
   end
 end
 

@@ -2,7 +2,7 @@ package = 'graphql'
 version = 'scm-1'
 
 source = {
-  url = 'git://github.com/tarantool/graphql.git'
+  url = 'git+https://github.com/tarantool/graphql.git'
 }
 
 description = {

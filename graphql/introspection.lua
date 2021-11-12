@@ -7,11 +7,11 @@ local __Schema, __Directive, __DirectiveLocation, __Type, __Field, __InputValue,
 local function resolveArgs(field)
     local function transformArg(arg, name)
         if arg.__type then
-            return { kind = arg, name = name, }
+            return { kind = arg, name = name }
         elseif arg.name then
             return arg
         else
-            local result = { name = name, }
+            local result = { name = name }
 
             for k, v in pairs(arg) do
                 result[k] = v

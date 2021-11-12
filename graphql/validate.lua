@@ -48,7 +48,7 @@ local visitors = {
     end,
 
     children = function(node)
-      return { node.selectionSet, }
+      return { node.selectionSet }
     end,
 
     rules = {
@@ -69,7 +69,7 @@ local visitors = {
       return node.selections
     end,
 
-    rules = { rules.unambiguousSelections, }
+    rules = { rules.unambiguousSelections }
   },
 
   field = {
@@ -141,7 +141,7 @@ local visitors = {
 
     children = function(node, _)
       if node.selectionSet then
-        return {node.selectionSet,}
+        return {node.selectionSet}
       end
     end,
 
@@ -267,7 +267,7 @@ local visitors = {
       end)
     end,
 
-    rules = { rules.uniqueInputObjectFields, }
+    rules = { rules.uniqueInputObjectFields }
   },
 
   inputObject = {
@@ -277,7 +277,7 @@ local visitors = {
       end)
     end,
 
-    rules = { rules.uniqueInputObjectFields, }
+    rules = { rules.uniqueInputObjectFields }
   },
 
   list = {
@@ -349,4 +349,4 @@ local function validate(schema, tree)
   return visit(tree)
 end
 
-return {validate=validate,}
+return {validate=validate}

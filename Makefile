@@ -13,7 +13,8 @@ lint:
 		.rocks/bin/luacheck .
 
 .PHONY: test
-test: 	lint
+test:
+		if [ ! -d ".rocks" ]; then make .rocks; fi
 		rm -f tmp/luacov*
 		.rocks/bin/luatest --verbose --coverage --shuffle group
 		.rocks/bin/luacov . && grep -A999 '^Summary' tmp/luacov.report.out

@@ -278,7 +278,7 @@ local function getFieldEntry(objectType, object, fields, context)
       if argument and argument.value then
           positions[pos] = {
               name=argument.name.value,
-              value=arguments[argument.name.value]
+              value=arguments[argument.name.value],
           }
           pos = pos + 1
       end
@@ -345,4 +345,6 @@ local function execute(schema, tree, rootValue, variables, operationName)
 end
 
 
-return {execute=execute}
+return {
+  execute = execute,
+}

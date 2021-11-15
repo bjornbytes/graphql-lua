@@ -6,7 +6,8 @@
 .doctrees
 __pycache__
 /dev
-/tmp
+/tmp/*
+!/tmp/.keep
 doc
 release
 release-doc
@@ -28,3 +29,4 @@ luacov.*.out*
 *.mo
 .history
 .vscode
+*.rock

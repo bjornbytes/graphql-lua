@@ -21,13 +21,10 @@ jobs:
           tarantool-version: ${{ matrix.tarantool-version }}
 
       - name: Install dependencies
-        run: |
-          tarantoolctl rocks install luatest 0.5.5
-          tarantoolctl rocks install luacheck 0.26.0
-          tarantoolctl rocks make
+        run: make .rocks
 
       - name: Run linter
-        run: .rocks/bin/luacheck .
+        run: make lint
 
       - name: Run tests
-        run: .rocks/bin/luatest -v
+        run: make test

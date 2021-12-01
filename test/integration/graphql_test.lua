@@ -1588,3 +1588,28 @@ function g.test_descriptions()
     local input_object_arg_described = util.find_by_name(test_input_object.inputFields, 'input_object_arg_described')
     t.assert_equals(input_object_arg_described.description, 'input object argument')
 end
+
+function g.test_schema_input_arg_described_with_kind()
+    local function callback(_, args)
+        return args[1].value
+    end
+
+    local query_schema = {
+        ['test'] = {
+            kind = types.string.nonNull,
+            arguments = {
+                arg = {
+                    kind = types.string.nonNull,
+                },
+            },
+            resolve = callback,
+        }
+    }
+
+    local query = [[
+        { test(arg: "A") }
+    ]]
+
+    local _, errors = check_request(query, query_schema, {})
+    t.assert_equals(errors, nil)
+end

@@ -1613,3 +1613,29 @@ function g.test_schema_input_arg_described_with_kind()
     local _, errors = check_request(query, query_schema, {})
     t.assert_equals(errors, nil)
 end
+
+function g.test_schema_input_arg_described_with_kind_variable_pass()
+    local function callback(_, args)
+        return args[1].value
+    end
+
+    local query_schema = {
+        ['test'] = {
+            kind = types.string.nonNull,
+            arguments = {
+                arg = {
+                    kind = types.string.nonNull,
+                },
+            },
+            resolve = callback,
+        }
+    }
+
+    local query = [[
+        query ($arg: String!) { test(arg: $arg) }
+    ]]
+    local variables = { arg = 'B' }
+
+    local _, errors = check_request(query, query_schema, nil, nil, { variables = variables })
+    t.assert_equals(errors, nil)
+end

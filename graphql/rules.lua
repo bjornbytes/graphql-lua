@@ -517,6 +517,13 @@ local function isVariableTypesValid(argument, argumentType, context,
       variableType = types.nonNull(variableType)
     end
 
+    -- This line of code provides support to using
+    -- `arg = { kind = type, description = desc }`
+    -- type declaration in query input arguments
+    -- instead of `arg = type` one when passing
+    -- argument with a variable.
+    if argumentType.kind ~= nil then argumentType = argumentType.kind end
+
     if not isTypeSubTypeOf(variableType, argumentType, context) then
       return false, ('Variable "%s" type mismatch: the variable type "%s" ' ..
         'is not compatible with the argument type "%s"'):format(variableName,

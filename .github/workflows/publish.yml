@@ -21,7 +21,7 @@ jobs:
 
       - uses: tarantool/rocks.tarantool.org/github-action@master
         with:
-          auth: ${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}
+          auth: ${{ secrets.ROCKS_AUTH }}
           files: |
             graphql-${{ env.TAG }}-1.rockspec
             graphql-${{ env.TAG }}-1.src.rock

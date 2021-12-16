@@ -1,6 +1,5 @@
-local path = (...):gsub('%.[^%.]+$', '')
-local types = require(path .. '.types')
-local introspection = require(path .. '.introspection')
+local introspection = require('graphql.introspection')
+local types = require('graphql.types')
 
 local function error(...)
   return _G.error(..., 0)

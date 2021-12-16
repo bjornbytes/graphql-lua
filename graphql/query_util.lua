@@ -1,5 +1,4 @@
-local path = (...):gsub('%.[^%.]+$', '')
-local types = require(path .. '.types')
+local types = require('graphql.types')
 
 local function typeFromAST(node, schema)
   local innerType

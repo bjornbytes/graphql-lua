@@ -1,6 +1,5 @@
-local path = (...):gsub('%.[^%.]+$', '')
-local util = require(path .. '.util')
 local ffi = require('ffi')
+local util = require('graphql.util')
 local format = string.format
 
 local function error(...)

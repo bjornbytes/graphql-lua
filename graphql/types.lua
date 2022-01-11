@@ -224,6 +224,7 @@ function types.inputObject(config)
       name = fieldName,
       kind = field.kind,
       description = field.description,
+      defaultValue = field.defaultValue,
     }
   end
 

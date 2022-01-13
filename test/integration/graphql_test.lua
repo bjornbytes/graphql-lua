@@ -1649,7 +1649,10 @@ function g.test_arguments_default_values()
         ['test_mutation'] = {
             kind = types.string.nonNull,
             arguments = {
-                mutation_arg = types.string,
+                mutation_arg = {
+                    kind = types.string,
+                    defaultValue = 'argument default value',
+                },
                 mutation_arg_defaults = {
                     kind = types.inputObject({
                         name = 'test_input_object',
@@ -1681,6 +1684,11 @@ function g.test_arguments_default_values()
 
     local data, errors = check_request(introspection.query, nil, mutation_schema)
     t.assert_equals(errors, nil)
+
+    local mutations = util.find_by_name(data.__schema.types, 'Mutation')
+    local test_mutation = util.find_by_name(mutations.fields, 'test_mutation')
+    local mutation_arg = util.find_by_name(test_mutation.args, 'mutation_arg')
+    t.assert_equals(mutation_arg.defaultValue, 'argument default value')
 
     local test_input_object = util.find_by_name(data.__schema.types, 'test_input_object')
     local input_object_arg_defaults = util.find_by_name(test_input_object.inputFields, 'input_object_arg_defaults')

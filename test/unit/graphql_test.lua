@@ -1088,3 +1088,7 @@ function g.test_util_find_by_name()
         'var')
     t.assert_equals(res, { name = 'var', value = 2 })
 end
+
+g.test_version = function()
+    t.assert_equals(require('graphql').VERSION, 'scm-1')
+end

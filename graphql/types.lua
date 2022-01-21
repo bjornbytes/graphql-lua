@@ -309,6 +309,7 @@ types.long = types.scalar({
   name = 'Long',
   description = "The `Long` scalar type represents non-fractional signed whole numeric values. " ..
           "Long can represent values from -(2^52) to 2^52 - 1, inclusive.",
+  specifiedByURL = 'https://github.com/tarantool/graphql/wiki/Long',
   serialize = coerceLong,
   parseLiteral = function(node)
     return coerceLong(node.value)
@@ -331,6 +332,8 @@ end
 
 types.float = types.scalar({
   name = 'Float',
+  description = "The `Float` scalar type represents signed double-"..
+          "precision fractional values as specified by IEEE 754.",
   serialize = coerceFloat,
   parseLiteral = function(node)
     return coerceFloat(node.value)

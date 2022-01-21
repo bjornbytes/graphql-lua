@@ -1697,3 +1697,21 @@ function g.test_arguments_default_values()
     local nested_enum_arg_defaults = util.find_by_name(test_input_object.inputFields, 'nested_enum_arg_defaults')
     t.assert_equals(nested_enum_arg_defaults.defaultValue, 'write')
 end
+
+function g.test_specifiedByURL_long_scalar()
+    local query_schema = {
+        ['test'] = {
+            kind = types.string.nonNull,
+            arguments = {
+                arg = types.long,
+            },
+            resolve = '',
+        }
+    }
+
+    local data, errors = check_request(introspection.query, query_schema)
+    local long_type_schema = util.find_by_name(data.__schema.types, 'Long')
+    t.assert_type(long_type_schema, 'table', 'Long scalar type found on introspection')
+    t.assert_equals(long_type_schema.specifiedByURL, 'https://github.com/tarantool/graphql/wiki/Long')
+    t.assert_equals(errors, nil)
+end

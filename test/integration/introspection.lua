@@ -24,7 +24,7 @@ return {
             kind
             name
             description
-            specifiedByUrl
+            specifiedByURL
             fields(includeDeprecated: true) {
                 name
                 description

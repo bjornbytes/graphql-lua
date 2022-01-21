@@ -1427,7 +1427,7 @@ function g.test_custom_directives()
     t.assert_equals(errors, nil)
 end
 
-function g.test_specifiedByUrl_scalar_field()
+function g.test_specifiedByURL_scalar_field()
     local function callback(_, _)
         return nil
     end
@@ -1445,7 +1445,7 @@ function g.test_specifiedByUrl_scalar_field()
         isValueOfTheType = function(_)
             return true
         end,
-        specifiedByUrl = 'http://localhost',
+        specifiedByURL = 'http://localhost',
     })
 
     local query_schema = {
@@ -1461,7 +1461,7 @@ function g.test_specifiedByUrl_scalar_field()
     local data, errors = check_request(introspection.query, query_schema)
     local CustomInt_schema = util.find_by_name(data.__schema.types, 'CustomInt')
     t.assert_type(CustomInt_schema, 'table', 'CustomInt schema found on introspection')
-    t.assert_equals(CustomInt_schema.specifiedByUrl, 'http://localhost')
+    t.assert_equals(CustomInt_schema.specifiedByURL, 'http://localhost')
     t.assert_equals(errors, nil)
 end
 

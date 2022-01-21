@@ -96,7 +96,7 @@ function types.scalar(config)
     parseValue = config.parseValue,
     parseLiteral = config.parseLiteral,
     isValueOfTheType = config.isValueOfTheType,
-    specifiedByUrl = config.specifiedByUrl,
+    specifiedByURL = config.specifiedByURL,
   }
 
   instance.nonNull = types.nonNull(instance)

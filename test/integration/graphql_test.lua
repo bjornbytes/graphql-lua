@@ -1425,6 +1425,17 @@ function g.test_custom_directives()
     data, errors = check_request(query, query_schema, nil, directives)
     t.assert_equals(data, { test_G = '{"num":5,"str":"news"}' })
     t.assert_equals(errors, nil)
+
+    -- check custom directives with variables
+    local variables = {num = 33}
+
+    query = [[query TEST($num: Int, $str: String = "variable") {
+        test_G: test(arg: { num: 2, str: "s" })@override_v2(arg: { num: $num, str: $str })
+    }]]
+
+    data, errors = check_request(query, query_schema, nil, directives, {variables = variables})
+    t.assert_equals(data, { test_G = '{"num":33,"str":"variable"}' })
+    t.assert_equals(errors, nil)
 end
 
 function g.test_specifiedByURL_scalar_field()

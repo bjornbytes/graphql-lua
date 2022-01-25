@@ -1726,3 +1726,81 @@ function g.test_specifiedByURL_long_scalar()
     t.assert_equals(long_type_schema.specifiedByURL, 'https://github.com/tarantool/graphql/wiki/Long')
     t.assert_equals(errors, nil)
 end
+
+function g.test_skip_include_directives()
+    local function callback(_, _)
+        return {
+            uri = 'uri1',
+            uris = {
+                uri = 'uri2'
+            }
+        }
+    end
+
+    local query_schema = {
+        ['test'] = {
+            kind = types.object({
+                name = 'selection',
+                fields = {
+                    uri = types.string,
+                    uris = types.object({
+                        name = 'uris',
+                        fields = {
+                            uri = types.string,
+                        }
+                    }),
+                }
+            }),
+            resolve = callback,
+        }
+    }
+
+    -- check request without directives
+    local data, errors = check_request('{test{uri uris{uri}}}', query_schema)
+    t.assert_equals(errors, nil)
+    t.assert_items_equals(data, {test = {uri = "uri1", uris = {uri = "uri2"}}})
+
+    -- check request with directive: skip if == false
+    data, errors = check_request(
+        'query TEST($skip_field: Boolean){test{uri@skip(if: $skip_field) uris{uri}}}',
+        query_schema,
+        nil,
+        nil,
+        { variables = { skip_field = false }}
+    )
+    t.assert_equals(errors, nil)
+    t.assert_items_equals(data, {test = {uri = "uri1", uris = {uri = "uri2"}}})
+
+    -- check request with directive: skip if == true
+    data, errors = check_request(
+        'query TEST($skip_field: Boolean){test{uri@skip(if: $skip_field) uris{uri}}}',
+        query_schema,
+        nil,
+        nil,
+        { variables = { skip_field = true }}
+    )
+    t.assert_equals(errors, nil)
+    t.assert_items_equals(data, {test = {uris = {uri = "uri2"}}})
+
+    -- check request with directive: include if == false
+    data, errors = check_request(
+        'query TEST($include_field: Boolean){test{uri@include(if: $include_field) uris{uri}}}',
+        query_schema,
+        nil,
+        nil,
+        { variables = { include_field = false }}
+    )
+    t.assert_equals(errors, nil)
+    t.assert_items_equals(data, {test = {uris = {uri = "uri2"}}})
+
+    -- check request with directive: include if == true
+    data, errors = check_request(
+        'query TEST($include_field: Boolean){test{uri@include(if: $include_field) uris{uri}}}',
+        query_schema,
+        nil,
+        nil,
+        { variables = { include_field = true }}
+    )
+    t.assert_equals(errors, nil)
+    t.assert_items_equals(data, {test = {uri = "uri1", uris = {uri = "uri2"}}})
+end

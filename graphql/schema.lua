@@ -117,7 +117,6 @@ function schema:generateDirectiveMap()
           if argumentType == nil then
             error('Must supply type for argument "' .. name .. '" on "' .. directive.name .. '"')
           end
-          argumentType.defaultValue = argument.defaultValue
           self:generateTypeMap(argumentType)
       end
     end

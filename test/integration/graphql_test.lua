@@ -1804,3 +1804,70 @@ function g.test_skip_include_directives()
     t.assert_equals(errors, nil)
     t.assert_items_equals(data, {test = {uri = "uri1", uris = {uri = "uri2"}}})
 end
+
+-- test simultaneous usage of mutation and directive default values
+function g.test_mutation_and_directive_arguments_default_values()
+    local function callback(_, _)
+        return nil
+    end
+
+    local mutation_schema = {
+        ['test_mutation'] = {
+            kind = types.string.nonNull,
+            arguments = {
+                object_arg = {
+                    kind = types.inputObject({
+                        name = 'test_input_object',
+                        fields = {
+                            nested = {
+                                kind = types.string,
+                                defaultValue = 'default Value',
+                            },
+                        },
+                        kind = types.string,
+                    }),
+                },
+                mutation_arg = {
+                    kind = types.int,
+                    defaultValue = 1,
+                },
+
+            },
+            resolve = callback,
+        }
+    }
+
+    local directives = {
+        types.directive({
+            schema = schema,
+            name = 'timeout',
+            description = 'Request execute timeout',
+            arguments = {
+                seconds = {
+                    kind = types.int,
+                    description = 'Request timeout (in seconds). Default: 1 second',
+                    defaultValue = 1,
+                },
+            },
+            onField = true,
+        })
+    }
+
+    local root = {
+        query = types.object({
+            name = 'Query',
+            fields = {},
+        }),
+        mutation = types.object({
+            name = 'Mutation',
+            fields = mutation_schema or {},
+        }),
+        directives = directives,
+    }
+
+    local compiled_schema = schema.create(root, test_schema_name)
+
+    -- test that schema.typeMap is not corrupted when both mutation and
+    -- directive default values used on the same argument type
+    t.assert_equals(compiled_schema.typeMap['Int'].defaultValue, nil)
+end

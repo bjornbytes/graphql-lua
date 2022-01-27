@@ -335,6 +335,7 @@ local function getFieldEntry(objectType, object, fields, context)
     variableValues = context.variables,
     defaultValues = context.defaultValues,
     directives = directives,
+    directivesDefaultValues = context.schema.directivesDefaultValues,
   }
 
   local resolvedObject, err = (fieldType.resolve or defaultResolver)(object, arguments, info)
@@ -352,9 +353,27 @@ evaluateSelections = function(objectType, object, selections, context)
   local result = {}
   local err
   local fields = collectFields(objectType, selections, {}, {}, context)
+  local defaultValues
+
+  if context.defaultValues == nil then
+    if context.schema.defaultValues ~= nil and type(context.schema.defaultValues) == 'table' then
+      local operationDefaults = context.schema.defaultValues[context.operation.operation]
+      if operationDefaults ~= nil and type(operationDefaults) == 'table' then
+        defaultValues = context.schema.defaultValues[context.operation.operation]
+      end
+    end
+  else
+    defaultValues = context.defaultValues
+  end
+
   for _, field in ipairs(fields) do
     assert(result[field.name] == nil,
       'two selections into the one field: ' .. field.name)
+
+    if defaultValues ~= nil then
+      context.defaultValues = defaultValues[field.name]
+    end
+
     result[field.name], err = getFieldEntry(objectType, object, {field.selection},
                                        context)
     if err ~= nil then

@@ -8,10 +8,11 @@ end
 local schema = {}
 schema.__index = schema
 
-function schema.create(config, name)
+function schema.create(config, name, opts)
   assert(type(config.query) == 'table', 'must provide query object')
   assert(not config.mutation or type(config.mutation) == 'table', 'mutation must be a table if provided')
 
+  opts = opts or {}
   local self = setmetatable({}, schema)
 
   for k, v in pairs(config) do
@@ -34,7 +35,99 @@ function schema.create(config, name)
   self:generateTypeMap(introspection.__Schema)
   self:generateDirectiveMap()
 
+  if opts.defaultValues == true then
+    self.defaultValues = {}
+    self.defaultValues.mutation = self:extractDefaults(self.mutation)
+    self.defaultValues.query = self:extractDefaults(self.query)
+  end
+
+  if opts.directivesDefaultValues == true then
+    self.directivesDefaultValues = {}
+
+    for directiveName, directive in pairs(self.directiveMap or {}) do
+      self.directivesDefaultValues[directiveName] = self:extractDefaults(directive)
+    end
+  end
+
   return self
+end
+
+function schema:extractDefaults(node)
+  if not node then return end
+
+  local defaultValues
+  local nodeType = node.__type ~= nil and node or node.kind
+
+  if nodeType.__type == 'NonNull' then
+    return self:extractDefaults(nodeType.ofType)
+  end
+
+  if nodeType.__type == 'Enum' then
+    return node.defaultValue
+  end
+
+  if nodeType.__type == 'Scalar' then
+    return node.defaultValue
+  end
+
+  node.fields = type(node.fields) == 'function' and node.fields() or node.fields
+
+  if nodeType.__type == 'Object' or nodeType.__type == 'InputObject' then
+    for fieldName, field in pairs(nodeType.fields or {}) do
+      local fieldDefaultValue = self:extractDefaults(field)
+      if fieldDefaultValue ~= nil then
+        defaultValues = defaultValues or {}
+        defaultValues[fieldName] = fieldDefaultValue
+      end
+
+      for argumentName, argument in pairs(field.arguments or {}) do
+        -- BEGIN_HACK: resolve type names to real types
+        if type(argument) == 'string' then
+          argument = types.resolve(argument, self.name)
+          field.arguments[argumentName] = argument
+        end
+
+        if type(argument.kind) == 'string' then
+          argument.kind = types.resolve(argument.kind, self.name)
+        end
+        -- END_HACK: resolve type names to real types
+
+        local argumentDefaultValue = self:extractDefaults(argument)
+        if argumentDefaultValue ~= nil then
+          defaultValues = defaultValues or {}
+          defaultValues[fieldName] = defaultValues[fieldName] or {}
+          defaultValues[fieldName][argumentName] = argumentDefaultValue
+        end
+      end
+    end
+    return defaultValues
+  end
+
+  if nodeType.__type =='Directive' then
+      for argumentName, argument in pairs(nodeType.arguments or {}) do
+        -- BEGIN_HACK: resolve type names to real types
+        if type(argument) == 'string' then
+          argument = types.resolve(argument, self.name)
+          nodeType.arguments[argumentName] = argument
+        end
+
+        if type(argument.kind) == 'string' then
+          argument.kind = types.resolve(argument.kind, self.name)
+        end
+        -- END_HACK: resolve type names to real types
+
+        local argumentDefaultValue = self:extractDefaults(argument)
+        if argumentDefaultValue ~= nil then
+          defaultValues = defaultValues or {}
+          defaultValues[argumentName] = argumentDefaultValue
+        end
+      end
+    return defaultValues
+  end
+
+  if nodeType.__type == 'List' then
+    return self:extractDefaults(nodeType.ofType)
+  end
 end
 
 function schema:generateTypeMap(node)

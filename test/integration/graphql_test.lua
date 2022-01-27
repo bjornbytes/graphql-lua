@@ -25,7 +25,7 @@ local function check_request(query, query_schema, mutation_schema, directives, o
         directives = directives,
     }
 
-    local compiled_schema = schema.create(root, test_schema_name)
+    local compiled_schema = schema.create(root, test_schema_name, opts)
 
     local parsed = parse.parse(query)
 
@@ -1870,4 +1870,184 @@ function g.test_mutation_and_directive_arguments_default_values()
     -- test that schema.typeMap is not corrupted when both mutation and
     -- directive default values used on the same argument type
     t.assert_equals(compiled_schema.typeMap['Int'].defaultValue, nil)
+end
+
+g.test_propagate_defaults_to_callback = function()
+    local query = '{test_mutation}'
+
+    local function callback(_, _, info)
+        return json.encode({
+            defaultValues = info.defaultValues,
+            directivesDefaultValues = info.directivesDefaultValues,
+        })
+    end
+
+    local input_object = types.inputObject({
+        name = 'test_input_object',
+        fields = {
+            nested_int_arg = {
+                kind = types.int,
+                defaultValue = 2,
+            },
+            nested_string_arg = {
+                kind = types.string,
+                defaultValue = 'default nested value',
+            },
+            nested_boolean_arg = {
+                kind = types.boolean,
+                defaultValue = true,
+            },
+            nested_float_arg = {
+                kind = types.float,
+                defaultValue = 1.1,
+            },
+            nested_long_arg = {
+                kind = types.long,
+                defaultValue = 2^50,
+            },
+            nested_list_scalar_arg = {
+                kind = types.list(types.string),
+                -- defaultValue seems illogical
+            }
+        },
+        kind = types.string,
+    })
+
+    local mutation_schema = {
+        ['test_mutation'] = {
+            kind = types.string.nonNull,
+            arguments = {
+                int_arg = {
+                    kind = types.int,
+                    defaultValue = 1,
+                },
+                string_arg = {
+                    kind = types.string,
+                    defaultValue = 'string_arg'
+                },
+                boolean_arg = {
+                    kind = types.boolean,
+                    defaultValue = false,
+                },
+                float_arg = {
+                    kind = types.float,
+                    defaultValue = 1.1,
+                },
+                long_arg = {
+                    kind = types.long,
+                    defaultValue = 2^50,
+                },
+                object_arg = {
+                    kind = input_object,
+                    -- defaultValue seems illogical
+                },
+                list_scalar_arg = {
+                    kind = types.list(types.string),
+                    -- defaultValue seems illogical
+                }
+            },
+            resolve = callback,
+        }
+    }
+
+    local directives = {
+        types.directive({
+            schema = schema,
+            name = 'timeout',
+            description = 'Request execute timeout',
+            arguments = {
+                int_arg = {
+                    kind = types.int,
+                    defaultValue = 1,
+                },
+                string_arg = {
+                    kind = types.string,
+                    defaultValue = 'string_arg'
+                },
+                boolean_arg = {
+                    kind = types.boolean,
+                    defaultValue = false,
+                },
+                float_arg = {
+                    kind = types.float,
+                    defaultValue = 1.1,
+                },
+                long_arg = {
+                    kind = types.long,
+                    defaultValue = 2^50,
+                },
+                object = input_object
+            },
+            onField = true,
+        })
+    }
+
+    local result = {
+        defaultValues = {
+            boolean_arg = false,
+            int_arg = 1,
+            float_arg = 1.1,
+            long_arg = 2^50,
+            object_arg = {
+                nested_boolean_arg = true,
+                nested_float_arg = 1.1,
+                nested_int_arg = 2,
+                nested_long_arg = 2^50,
+                nested_string_arg = "default nested value",
+            },
+            string_arg = "string_arg",
+        },
+        directivesDefaultValues = {
+            timeout = {
+                boolean_arg = false,
+                float_arg = 1.1,
+                int_arg = 1,
+                long_arg = 2^50,
+                object = {
+                    nested_boolean_arg = true,
+                    nested_float_arg = 1.1,
+                    nested_int_arg = 2,
+                    nested_long_arg = 2^50,
+                    nested_string_arg = "default nested value",
+                },
+                string_arg = "string_arg",
+            },
+        },
+    }
+
+    local data, errors = check_request(
+        query,
+        mutation_schema,
+        nil,
+        directives,
+        { defaultValues = true, directivesDefaultValues = true, }
+    )
+
+    t.assert_equals(errors, nil)
+    t.assert_items_equals(json.decode(data.test_mutation), result)
+
+    query = '{prefix{test_mutation}}'
+
+    local mutation_schema_with_prefix = {
+        ['prefix'] = {
+            kind = types.object({
+                name = 'prefix',
+                fields = mutation_schema,
+            }),
+            arguments = {},
+            resolve = function()
+                return {}
+            end,
+        }
+    }
+
+    data, errors = check_request(
+        query,
+        mutation_schema_with_prefix,
+        nil,
+        directives,
+        { defaultValues = true, directivesDefaultValues = true, }
+    )
+    t.assert_equals(errors, nil)
+    t.assert_items_equals(json.decode(data.prefix.test_mutation), result)
 end

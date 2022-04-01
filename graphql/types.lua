@@ -318,7 +318,15 @@ types.long = types.scalar({
 })
 
 local function isFloat(value)
-  return type(value) == 'number'
+  if type(value) == 'number' then
+    return true
+  end
+
+  if type(value) == 'cdata' then
+    return ffi.istype('int64_t', value) or ffi.istype('uint64_t', value)
+  end
+
+  return false
 end
 
 local function coerceFloat(value)

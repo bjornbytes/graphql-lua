@@ -2051,3 +2051,64 @@ g.test_propagate_defaults_to_callback = function()
     t.assert_equals(errors, nil)
     t.assert_items_equals(json.decode(data.prefix.test_mutation), result)
 end
+
+-- gh-47: accept a cdata number as a value of a Float variable.
+function g.test_cdata_number_as_float()
+     local query = [[
+        query ($x: Float!) { test(arg: $x) }
+    ]]
+
+    local function callback(_, args)
+        return args[1].value
+    end
+
+    local query_schema = {
+        ['test'] = {
+            kind = types.float.nonNull,
+            arguments = {
+                arg = types.float.nonNull,
+            },
+            resolve = callback,
+        }
+    }
+
+    -- 2^64-1
+    local variables = {x = 18446744073709551615ULL}
+    local res = check_request(query, query_schema, nil, nil, {variables = variables})
+    t.assert_type(res, 'table')
+    t.assert_almost_equals(res.test, 18446744073709551615)
+end
+
+-- Accept a large number in a Float argument.
+--
+-- The test is created in the scope of gh-47, but it is not
+-- strictly related to it: the issue is about interpreting
+-- a cdata number in a **variable** as a `Float` value.
+--
+-- Here we check a large number, which is written verbatim as
+-- an argument in a query. Despite that it is not what is
+-- described in gh-47, it worth to have such a test.
+function g.test_large_float_argument()
+    -- 2^64-1
+     local query = [[
+        { test(arg: 18446744073709551615) }
+    ]]
+
+    local function callback(_, args)
+        return args[1].value
+    end
+
+    local query_schema = {
+        ['test'] = {
+            kind = types.float.nonNull,
+            arguments = {
+                arg = types.float.nonNull,
+            },
+            resolve = callback,
+        }
+    }
+
+    local res = check_request(query, query_schema)
+    t.assert_type(res, 'table')
+    t.assert_almost_equals(res.test, 18446744073709551615)
+end

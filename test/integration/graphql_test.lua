@@ -2112,3 +2112,38 @@ function g.test_large_float_argument()
     t.assert_type(res, 'table')
     t.assert_almost_equals(res.test, 18446744073709551615)
 end
+
+-- http://spec.graphql.org/October2021/#sec-Float
+--
+-- > Non-finite floating-point internal values (NaN and Infinity) cannot be
+-- > coerced to Float and must raise a field error.
+function g.test_non_finite_float()
+     local query = [[
+        query ($x: Float!) { test(arg: $x) }
+    ]]
+
+    local function callback(_, args)
+        return args[1].value
+    end
+
+    local query_schema = {
+        ['test'] = {
+            kind = types.float.nonNull,
+            arguments = {
+                arg = types.float.nonNull,
+            },
+            resolve = callback,
+        }
+    }
+
+    local nan = 0 / 0
+    local inf = 1 / 0
+    local ninf = -inf
+
+    for _, x in pairs({nan, inf, ninf}) do
+        local variables = {x = x}
+        t.assert_error_msg_content_equals(
+            'Wrong variable "x" for the Scalar "Float"', check_request, query,
+            query_schema, nil, nil, {variables = variables})
+    end
+end

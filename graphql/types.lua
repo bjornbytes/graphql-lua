@@ -317,9 +317,20 @@ types.long = types.scalar({
   isValueOfTheType = isLong,
 })
 
+-- Return `false` for NaN, Negative Infinity or Positive Infinity.
+-- Return `true` otherwise.
+local function isfinite(n)
+  local d = n - n
+  return n == n and d == d
+end
+
 local function isFloat(value)
+  -- http://spec.graphql.org/October2021/#sec-Float
+  --
+  -- > Non-finite floating-point internal values (NaN and Infinity) cannot be
+  -- > coerced to Float and must raise a field error.
   if type(value) == 'number' then
-    return true
+    return isfinite(value)
   end
 
   if type(value) == 'cdata' then

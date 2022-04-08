@@ -1,1 +1,1 @@
-return { VERSION = 'scm-1' }
+return {VERSION = 'unknown'}

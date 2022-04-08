@@ -1090,5 +1090,5 @@ function g.test_util_find_by_name()
 end
 
 g.test_version = function()
-    t.assert_equals(require('graphql').VERSION, 'scm-1')
+    t.assert_type(require('graphql').VERSION, 'string')
 end

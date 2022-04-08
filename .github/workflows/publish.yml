@@ -16,7 +16,7 @@ jobs:
           tarantool-version: '2.8'
 
       - run: echo "TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
-      - run: echo "return { VERSION = '"$TAG"-1' }" > graphql/init.lua
+      - run: echo "return {VERSION = '"$TAG"'}" > graphql/init.lua
       - run: tarantoolctl rocks new_version --tag $TAG
       - run: tarantoolctl rocks make graphql-$TAG-1.rockspec
       - run: tarantoolctl rocks pack graphql $TAG

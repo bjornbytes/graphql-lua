@@ -18,11 +18,12 @@ jobs:
       - run: echo "TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - run: echo "return { VERSION = '"$TAG"-1' }" > graphql/init.lua
       - run: tarantoolctl rocks new_version --tag $TAG
-      - run: tarantoolctl rocks pack graphql-$TAG-1.rockspec
+      - run: tarantoolctl rocks make graphql-$TAG-1.rockspec
+      - run: tarantoolctl rocks pack graphql $TAG
 
       - uses: tarantool/rocks.tarantool.org/github-action@master
         with:
           auth: ${{ secrets.ROCKS_AUTH }}
           files: |
             graphql-${{ env.TAG }}-1.rockspec
-            graphql-${{ env.TAG }}-1.src.rock
+            graphql-${{ env.TAG }}-1.all.rock

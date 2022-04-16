@@ -96,7 +96,7 @@ function g.test_variables()
     local function callback(_, args)
         local result = ''
         for _, tuple in ipairs(getmetatable(args).__index) do
-            result = result .. tuple.value
+            result = result .. tostring(tuple.value)
         end
         return result
     end
@@ -184,10 +184,10 @@ function g.test_variables()
     )
 
     t.assert_error_msg_equals(
-            'Could not coerce value "18446744073709551614" to type "Long"',
+            'Could not coerce value "18446744073709551617" to type "Long"',
             function()
                 check_request([[
-                    query { test(arg: "", arg4: 18446744073709551614) }
+                    query { test(arg: "", arg4: 18446744073709551617) }
                 ]], query_schema)
             end
     )
@@ -2200,5 +2200,39 @@ function g.test_non_finite_float()
         t.assert_error_msg_content_equals(
             'Wrong variable "x" for the Scalar "Float"', check_request, query,
             query_schema, nil, nil, {variables = variables})
+    end
+end
+
+function g.test_huge_cdata_number()
+     local query = [[
+        query ($x: Long!) { test(arg: $x) }
+    ]]
+
+    local function callback(_, args)
+        return args[1].value
+    end
+
+    local query_schema = {
+        ['test'] = {
+            kind = types.long.nonNull,
+            arguments = {
+                arg = types.long.nonNull,
+            },
+            resolve = callback,
+        }
+    }
+
+    local test_values = {
+        {4503599627370495ULL, "{\"test\":4503599627370495}"},
+        {9223372036854775807ULL, "{\"test\":9223372036854775807}"},
+        {-1LL, "{\"test\":-1}"},
+        {-1ULL, "{\"test\":18446744073709551615}"}}
+
+    for _, v in ipairs(test_values) do
+        local variables = {x = v[1]}
+        local res = check_request(query, query_schema, nil, nil, {variables = variables})
+        t.assert_type(res, 'table')
+        t.assert_equals(res.test, v[1])
+        t.assert_equals(json.encode(res), v[2])
     end
 end

@@ -562,8 +562,8 @@ function g.test_custom_type_scalar_variables()
                 if args.field == nil then
                     return nil
                 end
-                assert(type(args.field) == 'table', "Field is not a table! ")
-                assert(args.field.test ~= nil, "No field 'test' in object!")
+                t.assert_type(args.field, 'table', "Field is not a table! ")
+                t.assert_not_equals(args.field.test, nil, "No field 'test' in object!")
                 return args.field
             end
         },
@@ -574,6 +574,20 @@ function g.test_custom_type_scalar_variables()
             },
             resolve = function(_, args)
                 return args.fields[1]
+            end
+        },
+        ['test_json_type_list'] = {
+            arguments = {
+                array = types.list(json_type),
+            },
+            kind = types.list(json_type),
+            resolve = function(_, args)
+                if args.array == nil then
+                    return nil
+                end
+                t.assert_type(args.array[1], 'table', "Array element is not a table! ")
+                t.assert_not_equals(args.array[1].test, nil, "No field 'test' in array element!")
+                return args.array
             end
         },
         ['test_custom_type_scalar_inputObject'] = {
@@ -616,6 +630,16 @@ function g.test_custom_type_scalar_variables()
     ]], query_schema, nil, nil, {
         variables = {field = box.NULL},
     }), {test_json_type = 'null'})
+
+    t.assert_equals(check_request([[
+        query($array: [Json]) {
+            test_json_type_list(
+                array: $array
+            )
+        }
+    ]], query_schema, nil, nil, {
+        variables = {array = {json.encode({test = 123})}},
+    }), {test_json_type_list = {'{"test":123}'}})
 
     t.assert_equals(check_request([[
         query {

@@ -2236,3 +2236,36 @@ function g.test_huge_cdata_number()
         t.assert_equals(json.encode(res), v[2])
     end
 end
+
+function g.test_gapped_arrays_output()
+    local query = [[
+        query ($x: [String]) { test(arg: $x) }
+    ]]
+
+    local function callback(_, args)
+        setmetatable(args.arg, {__serialize='array'})
+        return args.arg
+    end
+
+    local query_schema = {
+        ['test'] = {
+            kind = types.list(types.string),
+            arguments = {
+                arg = types.list(types.string),
+            },
+            resolve = callback,
+        }
+    }
+
+    local test_values = {
+        {[3] = 'a', [1] = 'b', [6] = 'c'},
+        {[3] = 'a', [1] = 'b', [7] = 'c'},
+    }
+
+    for _, v in ipairs(test_values) do
+        local variables = {x = v}
+        local res = check_request(query, query_schema, nil, nil, {variables = variables})
+        t.assert_type(res, 'table')
+        t.assert_equals(res.test, v)
+    end
+end

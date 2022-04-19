@@ -228,37 +228,23 @@ local function check(obj, obj_name, type_1, type_2, type_3)
     end
 end
 
---- Check whether table is an array.
----
---- Based on [that][1] implementation.
---- [1]: https://github.com/mpx/lua-cjson/blob/db122676/lua/cjson/util.lua
----
---- @tparam table table to check
---- @return[1] `true` if passed table is an array (includes the empty table
---- case)
---- @return[2] `false` otherwise
-local function is_array(table)
-    if type(table) ~= 'table' then
+local function is_array(t)
+  if type(t) ~= 'table' then
+     return false
+  end
+  local n = #t
+  if n > 0 then
+     for k in next, t, n do
+        if type(k) ~= 'number' or k < 0 then return false end
+     end
+     return true
+  end
+  for k in pairs(t) do
+     if type(k) ~= 'number' or k < 0 then
         return false
     end
-
-    local max = 0
-    local count = 0
-    for k, _ in pairs(table) do
-        if type(k) == 'number' then
-            if k > max then
-                max = k
-            end
-            count = count + 1
-        else
-            return false
-        end
-    end
-    if max > count * 2 then
-        return false
-    end
-
-    return max >= 0
+  end
+  return true
 end
 
 -- Copied from tarantool/tap

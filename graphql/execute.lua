@@ -208,7 +208,7 @@ local function completeValue(fieldType, result, subSelections, context, opts)
 
     local innerType = fieldType.ofType
     local values = {}
-    for i, value in ipairs(result) do
+    for i, value in pairs(result) do
       values[i] = completeValue(innerType, value, subSelections, context)
     end
 

@@ -115,10 +115,20 @@ local function coerceValue(node, schemaType, variables, opts)
             node.name.value, variables[node.name.value], schemaType.name
         ))
       end
-    elseif type(value) == 'table' and schemaType.__type == 'List' and
-           type(schemaType.ofType) == 'table' and schemaType.ofType.parseValue ~= nil then
-      for k, v in ipairs(value) do
-        value[k] = schemaType.ofType.parseValue(v)
+    elseif type(value) == 'table' then
+      if schemaType.__type == 'List' and type(schemaType.ofType) == 'table' and schemaType.ofType.parseValue ~= nil then
+        for k, v in ipairs(value) do
+          value[k] = schemaType.ofType.parseValue(v)
+        end
+      end
+
+      if schemaType.__type == 'InputObject' then
+        for k, v in pairs(value) do
+          if schemaType.fields[k] ~= nil and type(schemaType.fields[k].kind) == 'table' and
+             schemaType.fields[k].kind.parseValue ~= nil then
+            value[k] = schemaType.fields[k].kind.parseValue(v)
+          end
+        end
       end
     end
     return value

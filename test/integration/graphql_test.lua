@@ -608,7 +608,28 @@ function g.test_custom_type_scalar_variables()
             resolve = function(_, args)
                 return args.object.nested_object.field
             end
-        }
+        },
+        ['test_json_type_inputObject'] = {
+            kind = json_type,
+            arguments = {
+                object = types.inputObject({
+                    name = 'ComplexJsonInputObject',
+                    fields = {
+                        nested_object = types.inputObject({
+                            name = 'ComplexJsonNestedInputObject',
+                            fields = {
+                                field = json_type,
+                            }
+                        }),
+                    }
+                }),
+            },
+            resolve = function(_, args)
+                t.assert_type(args.object.nested_object.field, 'table', "Object element is not a table! ")
+                t.assert_not_equals(args.object.nested_object.field.test, nil, "No field 'test' in object element!")
+                return args.object.nested_object.field
+            end
+        },
     }
 
     t.assert_equals(check_request([[
@@ -779,6 +800,16 @@ function g.test_custom_type_scalar_variables()
                 ]], query_schema, nil, nil, {variables = {fields = {'echo'}}})
             end
     )
+
+    t.assert_equals(check_request([[
+        query($nested_object: ComplexJsonNestedInputObject!) {
+            test_json_type_inputObject(
+                object: { nested_object: $nested_object }
+            )
+        }
+    ]], query_schema, nil, nil, {
+        variables = {nested_object = { field = json.encode({test = 123})}},
+    }), {test_json_type_inputObject = '{"test":123}'})
 end
 
 function g.test_output_type_mismatch_error()

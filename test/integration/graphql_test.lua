@@ -797,7 +797,7 @@ function g.test_custom_type_scalar_variables()
                             object: { nested_object: { field: $field } }
                         )
                     }
-                ]], query_schema, nil, nil, {variables = {fields = {'echo'}}})
+                ]], query_schema, nil, nil, {variables = {field = {'echo'}}})
             end
     )
 

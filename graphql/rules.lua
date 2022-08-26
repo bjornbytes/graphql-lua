@@ -198,13 +198,15 @@ function rules.uniqueArgumentNames(node, _)
   end
 end
 
+local coerce_opts = { strict_non_null = true, skip_variables = true }
+
 function rules.argumentsOfCorrectType(node, context)
   if node.arguments then
     local parentField = getParentField(context, node.name.value)
     for _, argument in pairs(node.arguments) do
       local name = argument.name.value
       local argumentType = parentField.arguments[name]
-      util.coerceValue(argument.value, argumentType.kind or argumentType)
+      util.coerceValue(argument.value, argumentType.kind or argumentType, nil, coerce_opts)
     end
   end
 end

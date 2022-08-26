@@ -83,7 +83,12 @@ local function coerceValue(node, schemaType, variables, opts)
   variables = variables or {}
   opts = opts or {}
   local strict_non_null = opts.strict_non_null or false
+  local skip_variables = opts.skip_variables or false
   local defaultValues = opts.defaultValues or {}
+
+  if node and node.kind == 'variable' and skip_variables then
+    return nil
+  end
 
   if schemaType.__type == 'NonNull' then
     local res = coerceValue(node, schemaType.ofType, variables, opts)

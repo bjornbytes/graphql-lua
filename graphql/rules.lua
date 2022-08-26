@@ -513,6 +513,7 @@ local function isVariableTypesValid(argument, argumentType, context,
     local variableType = query_util.typeFromAST(variableDefinition.type,
       context.schema)
 
+    local realVariableTypeName = util.getTypeName(variableType)
     if hasNonNullDefault and variableType.__type ~= 'NonNull' then
       variableType = types.nonNull(variableType)
     end
@@ -527,7 +528,7 @@ local function isVariableTypesValid(argument, argumentType, context,
     if not isTypeSubTypeOf(variableType, argumentType, context) then
       return false, ('Variable "%s" type mismatch: the variable type "%s" ' ..
         'is not compatible with the argument type "%s"'):format(variableName,
-        util.getTypeName(variableType), util.getTypeName(argumentType))
+        realVariableTypeName, util.getTypeName(argumentType))
     end
   elseif argument.value.kind == 'list' then
     -- find variables deeper

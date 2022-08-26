@@ -193,7 +193,7 @@ local function completeValue(fieldType, result, subSelections, context, opts)
   end
 
   if result == nil then
-    return nil
+    return result
   end
 
   if fieldTypeName == 'List' then

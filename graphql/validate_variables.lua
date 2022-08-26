@@ -7,15 +7,17 @@ local function error(...)
 end
 
 -- Traverse type more or less likewise util.coerceValue do.
-local function checkVariableValue(variableName, value, variableType)
+local function checkVariableValue(variableName, value, variableType, isNonNullDefaultDefined)
   check(variableName, 'variableName', 'string')
   check(variableType, 'variableType', 'table')
 
   local isNonNull = variableType.__type == 'NonNull'
+  isNonNullDefaultDefined = isNonNullDefaultDefined or false
 
   if isNonNull then
     variableType = types.nullable(variableType)
-    if value == nil then
+    if (type(value) == 'cdata' and value == nil) or
+       (type(value) == 'nil' and not isNonNullDefaultDefined) then
       error(('Variable %q expected to be non-null'):format(variableName))
     end
   end
@@ -116,8 +118,19 @@ local function validate_variables(context)
 
   -- check that variable values have correct type
   for variableName, variableType in pairs(context.variableTypes) do
+    -- Check if default value presents.
+    local isNonNullDefaultDefined = false
+    for _, variableDefinition in ipairs(context.operation.variableDefinitions) do
+      if variableDefinition.variable.name.value == variableName and
+         variableDefinition.defaultValue ~= nil then
+        if (variableDefinition.defaultValue.value ~= nil) or (variableDefinition.defaultValue.values ~= nil) then
+          isNonNullDefaultDefined = true
+        end
+      end
+    end
+
     local value = (context.variables or {})[variableName]
-    checkVariableValue(variableName, value, variableType)
+    checkVariableValue(variableName, value, variableType, isNonNullDefaultDefined)
   end
 end
 

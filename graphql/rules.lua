@@ -408,11 +408,9 @@ end
 function rules.variableDefaultValuesHaveCorrectType(node, context)
   if node.variableDefinitions then
     for _, definition in ipairs(node.variableDefinitions) do
-      if definition.type.kind == 'nonNullType' and definition.defaultValue then
-        error('Non-null variables can not have default values')
-      elseif definition.defaultValue then
+      if definition.defaultValue then
         local variableType = query_util.typeFromAST(definition.type, context.schema)
-        util.coerceValue(definition.defaultValue, variableType)
+        util.coerceValue(definition.defaultValue, variableType, nil, coerce_opts)
       end
     end
   end

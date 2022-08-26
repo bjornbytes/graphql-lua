@@ -507,12 +507,13 @@ local function isVariableTypesValid(argument, argumentType, context,
       error('Unknown variable "' .. variableName .. '"')
     end
 
-    local hasDefault = variableDefinition.defaultValue ~= nil
+    local hasNonNullDefault = (variableDefinition.defaultValue ~= nil) and
+                              (variableDefinition.defaultValue.kind ~= 'null')
 
     local variableType = query_util.typeFromAST(variableDefinition.type,
       context.schema)
 
-    if hasDefault and variableType.__type ~= 'NonNull' then
+    if hasNonNullDefault and variableType.__type ~= 'NonNull' then
       variableType = types.nonNull(variableType)
     end
 

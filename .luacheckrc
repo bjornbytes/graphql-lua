@@ -8,6 +8,7 @@ include_files = {
 }
 exclude_files = {
     '.rocks',
+    'test/integration/fuzzing_nullability_test.lua',
 }
 new_read_globals = {
     box = { fields = {

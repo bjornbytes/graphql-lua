@@ -1,40 +1,13 @@
 local json = require('json')
 local types = require('graphql.types')
 local schema = require('graphql.schema')
-local parse = require('graphql.parse')
-local validate = require('graphql.validate')
-local execute = require('graphql.execute')
 local util = require('graphql.util')
-local introspection = require('test.integration.introspection')
 
 local t = require('luatest')
 local g = t.group('integration')
 
-local test_schema_name = 'default'
-local function check_request(query, query_schema, mutation_schema, directives, opts)
-    opts = opts or {}
-    local root = {
-        query = types.object({
-            name = 'Query',
-            fields = query_schema or {},
-        }),
-        mutation = types.object({
-            name = 'Mutation',
-            fields = mutation_schema or {},
-        }),
-        directives = directives,
-    }
-
-    local compiled_schema = schema.create(root, test_schema_name, opts)
-
-    local parsed = parse.parse(query)
-
-    validate.validate(compiled_schema, parsed)
-
-    local rootValue = {}
-    local variables = opts.variables or {}
-    return execute.execute(compiled_schema, parsed, rootValue, variables)
-end
+local helpers = require('test.helpers')
+local introspection = require('test.integration.introspection')
 
 function g.test_simple()
      local query = [[
@@ -58,7 +31,7 @@ function g.test_simple()
         }
     }
 
-    t.assert_equals(check_request(query, query_schema), {test = 'A'})
+    t.assert_equals(helpers.check_request(query, query_schema), {test = 'A'})
 end
 
 function g.test_args_order()
@@ -83,8 +56,8 @@ function g.test_args_order()
         }
     }
 
-    t.assert_equals(check_request([[{ test(arg: "B", arg2: "22") }]], query_schema), {test = 'B22'})
-    t.assert_equals(check_request([[{ test(arg2: "22", arg: "B") }]], query_schema), {test = '22B'})
+    t.assert_equals(helpers.check_request([[{ test(arg: "B", arg2: "22") }]], query_schema), {test = 'B22'})
+    t.assert_equals(helpers.check_request([[{ test(arg2: "22", arg: "B") }]], query_schema), {test = '22B'})
 end
 
 function g.test_variables()
@@ -115,7 +88,7 @@ function g.test_variables()
     }
 
     -- Positive test
-    t.assert_equals(check_request(query, query_schema, nil, nil, {variables = variables}), {test = 'B22'})
+    t.assert_equals(helpers.check_request(query, query_schema, nil, nil, {variables = variables}), {test = 'B22'})
 
     -- Negative tests
     local query = [[
@@ -125,7 +98,7 @@ function g.test_variables()
     t.assert_error_msg_equals(
             'Variable "arg2" expected to be non-null',
             function()
-                check_request(query, query_schema, nil, nil, {variables = {}})
+                helpers.check_request(query, query_schema, nil, nil, {variables = {}})
             end
     )
 
@@ -138,28 +111,28 @@ function g.test_variables()
                     ' the variable type "String" is not compatible' ..
                     ' with the argument type "NonNull(String)"',
             function()
-                check_request(query, query_schema, nil, nil, {variables = {}})
+                helpers.check_request(query, query_schema, nil, nil, {variables = {}})
             end
     )
 
     t.assert_error_msg_equals(
             'Required argument "arg" was not supplied.',
             function()
-                check_request([[ query { test(arg2: "") } ]], query_schema)
+                helpers.check_request([[ query { test(arg2: "") } ]], query_schema)
             end
     )
 
     t.assert_error_msg_equals(
             'Unknown variable "unknown_arg"',
             function()
-                check_request([[ query { test(arg: $unknown_arg) } ]], query_schema)
+                helpers.check_request([[ query { test(arg: $unknown_arg) } ]], query_schema)
             end
     )
 
     t.assert_error_msg_equals(
             'There is no declaration for the variable "unknown_arg"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query { test(arg: "") }
                 ]], query_schema, nil, nil, { variables = {unknown_arg = ''}})
             end
@@ -168,7 +141,7 @@ function g.test_variables()
     t.assert_error_msg_equals(
             'Could not coerce value "8589934592" to type "Int"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query { test(arg: "", arg3: 8589934592) }
                 ]], query_schema)
             end
@@ -177,7 +150,7 @@ function g.test_variables()
     t.assert_error_msg_equals(
             'Could not coerce value "123.4" to type "Int"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query { test(arg: "", arg3: 123.4) }
                 ]], query_schema)
             end
@@ -186,7 +159,7 @@ function g.test_variables()
     t.assert_error_msg_equals(
             'Could not coerce value "18446744073709551617" to type "Long"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query { test(arg: "", arg4: 18446744073709551617) }
                 ]], query_schema)
             end
@@ -195,7 +168,7 @@ function g.test_variables()
     t.assert_error_msg_equals(
             'Could not coerce value "123.4" to type "Long"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query { test(arg: "", arg4: 123.4) }
                 ]], query_schema)
             end
@@ -204,7 +177,7 @@ function g.test_variables()
     t.assert_error_msg_equals(
             'Could not coerce value "inputObject" to type "String"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query { test(arg: {a: "123"}, arg4: 123) }
                 ]], query_schema)
             end
@@ -213,7 +186,7 @@ function g.test_variables()
     t.assert_error_msg_equals(
             'Could not coerce value "list" to type "String"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query { test(arg: ["123"], arg4: 123) }
                 ]], query_schema)
             end
@@ -240,7 +213,7 @@ function g.test_error_in_handlers()
     t.assert_error_msg_equals(
             'Error C',
             function()
-                check_request([[
+                helpers.check_request([[
                     { test(arg: "TEST") }
                 ]], query_schema)
             end
@@ -253,7 +226,7 @@ function g.test_error_in_handlers()
     t.assert_error_msg_equals(
             'Error E',
             function()
-                check_request([[
+                helpers.check_request([[
                     { test(arg: "TEST") }
                 ]], query_schema)
             end
@@ -284,7 +257,7 @@ function g.test_subselections()
     t.assert_error_msg_equals(
             'Scalar field "uri" cannot have subselections',
             function()
-                check_request([[
+                helpers.check_request([[
                     { test(arg: "") { uri { id } } }
                 ]], query_schema)
             end
@@ -293,7 +266,7 @@ function g.test_subselections()
     t.assert_error_msg_equals(
             'Composite field "uris" must have subselections',
             function()
-                check_request([[
+                helpers.check_request([[
                     { test(arg: "") { uris } }
                 ]], query_schema)
             end
@@ -302,7 +275,7 @@ function g.test_subselections()
     t.assert_error_msg_equals(
             'Field "unknown" is not defined on type "selection"',
             function()
-                check_request([[
+                helpers.check_request([[
                     { test(arg: "") { unknown } }
                 ]], query_schema)
             end
@@ -336,7 +309,7 @@ function g.test_enum_input()
         }
     }
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($arg: simple_input_object) {
             simple_enum(arg: $arg)
         }
@@ -345,7 +318,7 @@ function g.test_enum_input()
     t.assert_error_msg_equals(
             'Wrong variable "arg.field" for the Enum "simple_enum" with value "d"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query($arg: simple_input_object) {
                         simple_enum(arg: $arg)
                     }
@@ -380,7 +353,7 @@ function g.test_enum_output()
         }
     }
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query {
             test_enum_output{ value }
         }
@@ -391,7 +364,7 @@ function g.test_unknown_query_mutation()
     t.assert_error_msg_equals(
             'Field "UNKNOWN_TYPE" is not defined on type "Query"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query { UNKNOWN_TYPE(arg: "") }
                 ]], {})
             end
@@ -400,7 +373,7 @@ function g.test_unknown_query_mutation()
     t.assert_error_msg_equals(
             'Field "UNKNOWN_TYPE" is not defined on type "Mutation"',
             function()
-                check_request([[
+                helpers.check_request([[
                     mutation { UNKNOWN_TYPE(arg: "") }
                 ]], {})
             end
@@ -457,7 +430,7 @@ function g.test_nested_input()
         },
     }
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($field: String!) {
             test_nested_InputObject(
                 servers: [{ field: $field }]
@@ -468,7 +441,7 @@ function g.test_nested_input()
     t.assert_error_msg_equals(
             'Unused variable "field"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query($field: String!) {
                         test_nested_InputObject(
                             servers: [{ field: "not-variable" }]
@@ -478,7 +451,7 @@ function g.test_nested_input()
             end
     )
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($field: String!) {
             test_nested_list(
                 servers: [$field]
@@ -486,7 +459,7 @@ function g.test_nested_input()
         }
     ]], query_schema, nil, nil, {variables = {field = 'echo'}}), {test_nested_list = 'echo'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($field: String! $field2: String! $upvalue: String!) {
             test_nested_InputObject_complex(
                 upvalue: $upvalue,
@@ -632,7 +605,7 @@ function g.test_custom_type_scalar_variables()
         },
     }
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($field: Json) {
             test_json_type(
                 field: $field
@@ -642,7 +615,7 @@ function g.test_custom_type_scalar_variables()
         variables = {field = '{"test": 123}'},
     }), {test_json_type = '{"test":123}'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($field: Json) {
             test_json_type(
                 field: $field
@@ -652,7 +625,7 @@ function g.test_custom_type_scalar_variables()
         variables = {field = box.NULL},
     }), {test_json_type = 'null'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($array: [Json]) {
             test_json_type_list(
                 array: $array
@@ -662,7 +635,7 @@ function g.test_custom_type_scalar_variables()
         variables = {array = {json.encode({test = 123})}},
     }), {test_json_type_list = {'{"test":123}'}})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query {
             test_json_type(
                 field: "null"
@@ -672,7 +645,7 @@ function g.test_custom_type_scalar_variables()
         variables = {},
     }), {test_json_type = 'null'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($field: CustomString!) {
             test_custom_type_scalar(
                 field: $field
@@ -687,7 +660,7 @@ function g.test_custom_type_scalar_variables()
             'the variable type "NonNull(String)" is not compatible with the argument type '..
             '"NonNull(CustomString)"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query($field: String!) {
                         test_custom_type_scalar(
                             field: $field
@@ -697,7 +670,7 @@ function g.test_custom_type_scalar_variables()
             end
     )
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($field: CustomString!) {
             test_custom_type_scalar_list(
                 fields: [$field]
@@ -711,7 +684,7 @@ function g.test_custom_type_scalar_variables()
             'Could not coerce value "inputObject" ' ..
                     'to type "CustomString"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query {
                         test_custom_type_scalar_list(
                             fields: [{a: "2"}]
@@ -726,7 +699,7 @@ function g.test_custom_type_scalar_variables()
             'the variable type "NonNull(String)" is not compatible with the argument type '..
             '"NonNull(CustomString)"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query($field: String!) {
                         test_custom_type_scalar_list(
                             fields: [$field]
@@ -736,7 +709,7 @@ function g.test_custom_type_scalar_variables()
             end
     )
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($fields: [CustomString!]!) {
             test_custom_type_scalar_list(
                 fields: $fields
@@ -751,7 +724,7 @@ function g.test_custom_type_scalar_variables()
             'the variable type "NonNull(List(NonNull(String)))" is not compatible with the argument type '..
             '"NonNull(List(NonNull(CustomString)))"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query($fields: [String!]!) {
                         test_custom_type_scalar_list(
                             fields: $fields
@@ -766,7 +739,7 @@ function g.test_custom_type_scalar_variables()
             'the variable type "List(NonNull(String))" is not compatible with the argument type '..
             '"NonNull(List(NonNull(CustomString)))"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query($fields: [String!]) {
                         test_custom_type_scalar_list(
                             fields: $fields
@@ -776,7 +749,7 @@ function g.test_custom_type_scalar_variables()
             end
     )
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($field: CustomString!) {
             test_custom_type_scalar_inputObject(
                 object: { nested_object: { field: $field } }
@@ -791,7 +764,7 @@ function g.test_custom_type_scalar_variables()
             'the variable type "NonNull(String)" is not compatible with the argument type '..
             '"CustomString"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query($field: String!) {
                         test_custom_type_scalar_inputObject(
                             object: { nested_object: { field: $field } }
@@ -801,7 +774,7 @@ function g.test_custom_type_scalar_variables()
             end
     )
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($nested_object: ComplexJsonNestedInputObject!) {
             test_json_type_inputObject(
                 object: { nested_object: $nested_object }
@@ -864,7 +837,7 @@ function g.test_output_type_mismatch_error()
     t.assert_error_msg_equals(
             'Expected "expected_nonnull_list" to be an "array", got "boolean"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query {
                         expected_nonnull_list
                     }
@@ -875,7 +848,7 @@ function g.test_output_type_mismatch_error()
     t.assert_error_msg_equals(
             'Expected "expected_obj" to be a "map", got "boolean"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query {
                         expected_obj { value }
                     }
@@ -886,7 +859,7 @@ function g.test_output_type_mismatch_error()
     t.assert_error_msg_equals(
             'Expected "expected_list" to be an "array", got "boolean"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query {
                         expected_list
                     }
@@ -897,7 +870,7 @@ function g.test_output_type_mismatch_error()
     t.assert_error_msg_equals(
             'Expected "expected_list_with_nested" to be an "array", got "map"',
             function()
-                check_request([[
+                helpers.check_request([[
                     query {
                         expected_list_with_nested { values { value } }
                     }
@@ -1015,7 +988,7 @@ function g.test_default_values()
         },
     }
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($arg: String = "default_value") {
             test_default_value(arg: $arg)
         }
@@ -1023,7 +996,7 @@ function g.test_default_values()
         variables = {},
     }), {test_default_value = 'default_value'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($arg: String = "default_value") {
             test_default_value(arg: $arg)
         }
@@ -1031,7 +1004,7 @@ function g.test_default_values()
         variables = {arg = box.NULL},
     }), {test_default_value = 'nil'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($arg: [String] = ["default_value"]) {
             test_default_list(arg: $arg)
         }
@@ -1039,7 +1012,7 @@ function g.test_default_values()
         variables = {},
     }), {test_default_list = 'default_value'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($arg: [String] = ["default_value"]) {
             test_default_list(arg: $arg)
         }
@@ -1047,7 +1020,7 @@ function g.test_default_values()
         variables = {arg = box.NULL},
     }), {test_default_list = 'nil'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($arg: default_input_object = {field: "default_value"}) {
             test_default_object(arg: $arg)
         }
@@ -1055,7 +1028,7 @@ function g.test_default_values()
         variables = {},
     }), {test_default_object = 'default_value'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($arg: default_input_object = {field: "default_value"}) {
             test_default_object(arg: $arg)
         }
@@ -1063,7 +1036,7 @@ function g.test_default_values()
         variables = {arg = box.NULL},
     }), {test_default_object = 'nil'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($field: Json = "{\"test\": 123}") {
             test_json_type(
                 field: $field
@@ -1073,7 +1046,7 @@ function g.test_default_values()
         variables = {},
     }), {test_json_type = '{"test":123}'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($arg: String = null, $is_null: Boolean) {
             test_null(arg: $arg is_null: $is_null)
         }
@@ -1081,7 +1054,7 @@ function g.test_default_values()
         variables = {arg = 'abc'},
     }), {test_null = 'abc'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($arg: String = null, $is_null: Boolean) {
             test_null(arg: $arg is_null: $is_null)
         }
@@ -1089,7 +1062,7 @@ function g.test_default_values()
         variables = {arg = box.NULL, is_null = true},
     }), {test_null = 'is_null'})
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query($arg: String = null, $is_null: Boolean) {
             test_null(arg: $arg is_null: $is_null)
         }
@@ -1126,7 +1099,7 @@ function g.test_null()
         },
     }
 
-    t.assert_equals(check_request([[
+    t.assert_equals(helpers.check_request([[
         query {
             test_null_nullable(arg: null)
         }
@@ -1137,7 +1110,7 @@ function g.test_null()
     t.assert_error_msg_equals(
             'Expected non-null for "NonNull(String)", got null',
             function()
-                check_request([[
+                helpers.check_request([[
                     query {
                         test_null_non_nullable(arg: null)
                     }
@@ -1169,7 +1142,7 @@ function g.test_validation_non_null_argument_error()
     t.assert_error_msg_contains(
             'Expected non-null',
             function()
-                check_request([[
+                helpers.check_request([[
                     query QueryFail {
                         TestEntity(insert: {})
                     }
@@ -1180,7 +1153,7 @@ function g.test_validation_non_null_argument_error()
     t.assert_error_msg_contains(
             'Expected non-null',
             function()
-                check_request([[
+                helpers.check_request([[
                     query QueryFail {
                         TestEntity(insert: {non_null: null})
                     }
@@ -1211,7 +1184,7 @@ function g.test_both_data_and_error_result()
             resolve = callback,
         }
     }
-    local data, errors = check_request(query, query_schema)
+    local data, errors = helpers.check_request(query, query_schema)
     t.assert_equals(data, {test_A = 'A', test_B = 'B'})
     t.assert_equals(errors,  {
         {message = 'Simple error A'},
@@ -1255,7 +1228,7 @@ function g.test_both_data_and_error_result()
         }
     }
 
-    data, errors = check_request(query, query_schema)
+    data, errors = helpers.check_request(query, query_schema)
     t.assert_equals(data, {prefix = {test_A = 'A', test_B = 'B'}})
     t.assert_equals(errors,  {
         {message = "Simple error from internal resolver A"},
@@ -1321,7 +1294,7 @@ function g.test_introspection()
         })
     }
 
-    local data, errors = check_request(introspection.query, query_schema, mutation_schema, directives)
+    local data, errors = helpers.check_request(introspection.query, query_schema, mutation_schema, directives)
     t.assert_type(data, 'table')
     t.assert_equals(errors, nil)
 end
@@ -1389,7 +1362,7 @@ function g.test_custom_directives()
             test_A: test(arg: "A")@custom(arg: "a")
         }
     }]]
-    local data, errors = check_request(simple_query, query_schema, nil, directives)
+    local data, errors = helpers.check_request(simple_query, query_schema, nil, directives)
     t.assert_equals(data, { prefix = { test_A = '{"custom":{"arg":"a"}}' }})
     t.assert_equals(errors, nil)
 
@@ -1398,7 +1371,7 @@ function g.test_custom_directives()
             test_B: test(arg: "B")@custom(arg: $arg)
         }
     }]]
-    data, errors = check_request(var_query, query_schema, nil, directives,
+    data, errors = helpers.check_request(var_query, query_schema, nil, directives,
         {variables = {arg = 'echo'}})
     t.assert_equals(data, { prefix = { test_B = '{"custom":{"arg":"echo"}}' }})
     t.assert_equals(errors, nil)
@@ -1410,7 +1383,7 @@ function g.test_custom_directives()
             num = types.int,
             str = types.string,
         },
-        schema = test_schema_name, -- add type to schema registry so it may be called by name
+        schema = helpers.test_schema_name, -- add type to schema registry so it may be called by name
     })
 
     local function callback(_, args, info)
@@ -1453,7 +1426,7 @@ function g.test_custom_directives()
         test_E: test(arg: { num: 2, str: "s" })@override(arg: { str: "s1" })
         test_F: test(arg: { num: 2, str: "s" })@override(arg: { })
     }]]
-    data, errors = check_request(query, query_schema, nil, directives)
+    data, errors = helpers.check_request(query, query_schema, nil, directives)
     t.assert_equals(data, {
         test_C = '{"num":3,"str":"s1"}',
         test_D = '{"num":3,"str":"s"}',
@@ -1477,7 +1450,7 @@ function g.test_custom_directives()
         test_G: test(arg: { num: 2, str: "s" })@override_v2(arg: { num: 5, str: "news" })
     }]]
 
-    data, errors = check_request(query, query_schema, nil, directives)
+    data, errors = helpers.check_request(query, query_schema, nil, directives)
     t.assert_equals(data, { test_G = '{"num":5,"str":"news"}' })
     t.assert_equals(errors, nil)
 
@@ -1488,7 +1461,7 @@ function g.test_custom_directives()
         test_G: test(arg: { num: 2, str: "s" })@override_v2(arg: { num: $num, str: $str })
     }]]
 
-    data, errors = check_request(query, query_schema, nil, directives, {variables = variables})
+    data, errors = helpers.check_request(query, query_schema, nil, directives, {variables = variables})
     t.assert_equals(data, { test_G = '{"num":33,"str":"variable"}' })
     t.assert_equals(errors, nil)
 end
@@ -1524,7 +1497,7 @@ function g.test_specifiedByURL_scalar_field()
         }
     }
 
-    local data, errors = check_request(introspection.query, query_schema)
+    local data, errors = helpers.check_request(introspection.query, query_schema)
     local CustomInt_schema = util.find_by_name(data.__schema.types, 'CustomInt')
     t.assert_type(CustomInt_schema, 'table', 'CustomInt schema found on introspection')
     t.assert_equals(CustomInt_schema.specifiedByURL, 'http://localhost')
@@ -1571,7 +1544,7 @@ function g.test_specifiedBy_directive()
         test_A: test(arg: 1)@specifiedBy(url: "http://localhost")
     }]]
 
-    local data, errors = check_request(query, query_schema)
+    local data, errors = helpers.check_request(query, query_schema)
     t.assert_equals(data, { test_A = { url = "http://localhost", value = "1" } })
     t.assert_equals(errors, nil)
 end
@@ -1631,7 +1604,7 @@ function g.test_descriptions()
         }
     }
 
-    local data, errors = check_request(introspection.query, query_schema, mutation_schema)
+    local data, errors = helpers.check_request(introspection.query, query_schema, mutation_schema)
     t.assert_equals(errors, nil)
 
     local test_query = util.find_by_name(data.__schema.types, 'Query')
@@ -1676,7 +1649,7 @@ function g.test_schema_input_arg_described_with_kind()
         { test(arg: "A") }
     ]]
 
-    local _, errors = check_request(query, query_schema, {})
+    local _, errors = helpers.check_request(query, query_schema, {})
     t.assert_equals(errors, nil)
 end
 
@@ -1702,7 +1675,7 @@ function g.test_schema_input_arg_described_with_kind_variable_pass()
     ]]
     local variables = { arg = 'B' }
 
-    local _, errors = check_request(query, query_schema, nil, nil, { variables = variables })
+    local _, errors = helpers.check_request(query, query_schema, nil, nil, { variables = variables })
     t.assert_equals(errors, nil)
 end
 
@@ -1748,7 +1721,7 @@ function g.test_arguments_default_values()
         }
     }
 
-    local data, errors = check_request(introspection.query, nil, mutation_schema)
+    local data, errors = helpers.check_request(introspection.query, nil, mutation_schema)
     t.assert_equals(errors, nil)
 
     local mutations = util.find_by_name(data.__schema.types, 'Mutation')
@@ -1775,7 +1748,7 @@ function g.test_specifiedByURL_long_scalar()
         }
     }
 
-    local data, errors = check_request(introspection.query, query_schema)
+    local data, errors = helpers.check_request(introspection.query, query_schema)
     local long_type_schema = util.find_by_name(data.__schema.types, 'Long')
     t.assert_type(long_type_schema, 'table', 'Long scalar type found on introspection')
     t.assert_equals(long_type_schema.specifiedByURL, 'https://github.com/tarantool/graphql/wiki/Long')
@@ -1811,12 +1784,12 @@ function g.test_skip_include_directives()
     }
 
     -- check request without directives
-    local data, errors = check_request('{test{uri uris{uri}}}', query_schema)
+    local data, errors = helpers.check_request('{test{uri uris{uri}}}', query_schema)
     t.assert_equals(errors, nil)
     t.assert_items_equals(data, {test = {uri = "uri1", uris = {uri = "uri2"}}})
 
     -- check request with directive: skip if == false
-    data, errors = check_request(
+    data, errors = helpers.check_request(
         'query TEST($skip_field: Boolean){test{uri@skip(if: $skip_field) uris{uri}}}',
         query_schema,
         nil,
@@ -1827,7 +1800,7 @@ function g.test_skip_include_directives()
     t.assert_items_equals(data, {test = {uri = "uri1", uris = {uri = "uri2"}}})
 
     -- check request with directive: skip if == true
-    data, errors = check_request(
+    data, errors = helpers.check_request(
         'query TEST($skip_field: Boolean){test{uri@skip(if: $skip_field) uris{uri}}}',
         query_schema,
         nil,
@@ -1838,7 +1811,7 @@ function g.test_skip_include_directives()
     t.assert_items_equals(data, {test = {uris = {uri = "uri2"}}})
 
     -- check request with directive: include if == false
-    data, errors = check_request(
+    data, errors = helpers.check_request(
         'query TEST($include_field: Boolean){test{uri@include(if: $include_field) uris{uri}}}',
         query_schema,
         nil,
@@ -1849,7 +1822,7 @@ function g.test_skip_include_directives()
     t.assert_items_equals(data, {test = {uris = {uri = "uri2"}}})
 
     -- check request with directive: include if == true
-    data, errors = check_request(
+    data, errors = helpers.check_request(
         'query TEST($include_field: Boolean){test{uri@include(if: $include_field) uris{uri}}}',
         query_schema,
         nil,
@@ -1920,7 +1893,7 @@ function g.test_mutation_and_directive_arguments_default_values()
         directives = directives,
     }
 
-    local compiled_schema = schema.create(root, test_schema_name)
+    local compiled_schema = schema.create(root, helpers.test_schema_name)
 
     -- test that schema.typeMap is not corrupted when both mutation and
     -- directive default values used on the same argument type
@@ -2070,7 +2043,7 @@ g.test_propagate_defaults_to_callback = function()
         },
     }
 
-    local data, errors = check_request(
+    local data, errors = helpers.check_request(
         query,
         mutation_schema,
         nil,
@@ -2096,7 +2069,7 @@ g.test_propagate_defaults_to_callback = function()
         }
     }
 
-    data, errors = check_request(
+    data, errors = helpers.check_request(
         query,
         mutation_schema_with_prefix,
         nil,
@@ -2129,7 +2102,7 @@ function g.test_cdata_number_as_float()
 
     -- 2^64-1
     local variables = {x = 18446744073709551615ULL}
-    local res = check_request(query, query_schema, nil, nil, {variables = variables})
+    local res = helpers.check_request(query, query_schema, nil, nil, {variables = variables})
     t.assert_type(res, 'table')
     t.assert_almost_equals(res.test, 18446744073709551615)
 end
@@ -2163,7 +2136,7 @@ function g.test_large_float_argument()
         }
     }
 
-    local res = check_request(query, query_schema)
+    local res = helpers.check_request(query, query_schema)
     t.assert_type(res, 'table')
     t.assert_almost_equals(res.test, 18446744073709551615)
 end
@@ -2198,7 +2171,7 @@ function g.test_non_finite_float()
     for _, x in pairs({nan, inf, ninf}) do
         local variables = {x = x}
         t.assert_error_msg_content_equals(
-            'Wrong variable "x" for the Scalar "Float"', check_request, query,
+            'Wrong variable "x" for the Scalar "Float"', helpers.check_request, query,
             query_schema, nil, nil, {variables = variables})
     end
 end
@@ -2230,7 +2203,7 @@ function g.test_huge_cdata_number()
 
     for _, v in ipairs(test_values) do
         local variables = {x = v[1]}
-        local res = check_request(query, query_schema, nil, nil, {variables = variables})
+        local res = helpers.check_request(query, query_schema, nil, nil, {variables = variables})
         t.assert_type(res, 'table')
         t.assert_equals(res.test, v[1])
         t.assert_equals(json.encode(res), v[2])
@@ -2264,7 +2237,7 @@ function g.test_gapped_arrays_output()
 
     for _, v in ipairs(test_values) do
         local variables = {x = v}
-        local res = check_request(query, query_schema, nil, nil, {variables = variables})
+        local res = helpers.check_request(query, query_schema, nil, nil, {variables = variables})
         t.assert_type(res, 'table')
         t.assert_equals(res.test, v)
     end

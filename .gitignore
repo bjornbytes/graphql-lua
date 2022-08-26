@@ -24,7 +24,7 @@ coverage_result.txt
 .DS_Store
 .vscode
 luacov.*.out*
-/node_modules
+**/node_modules
 /package-lock.json
 *.mo
 .history

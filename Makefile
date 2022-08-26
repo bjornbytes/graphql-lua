@@ -3,7 +3,7 @@ SHELL := /bin/bash
 .PHONY: .rocks
 .rocks: graphql-scm-1.rockspec Makefile
 		tarantoolctl rocks make
-		tarantoolctl rocks install luatest 0.5.5
+		tarantoolctl rocks install luatest 0.5.7
 		tarantoolctl rocks install luacov 0.13.0
 		tarantoolctl rocks install luacheck 0.26.0
 

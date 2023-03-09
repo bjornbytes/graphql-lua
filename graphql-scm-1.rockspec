@@ -21,6 +21,7 @@ build = {
   type = 'builtin',
   modules = {
     ['graphql.init'] = 'graphql/init.lua',
+    ['graphql.version'] = 'graphql/version.lua',
     ['graphql.execute'] = 'graphql/execute.lua',
     ['graphql.introspection'] = 'graphql/introspection.lua',
     ['graphql.parse'] = 'graphql/parse.lua',

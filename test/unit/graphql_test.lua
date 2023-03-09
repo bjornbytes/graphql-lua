@@ -1090,7 +1090,7 @@ function g.test_util_find_by_name()
 end
 
 g.test_version = function()
-    t.assert_type(require('graphql').VERSION, 'string')
+    t.assert_type(require('graphql')._VERSION, 'string')
 end
 
 function g.test_is_array()

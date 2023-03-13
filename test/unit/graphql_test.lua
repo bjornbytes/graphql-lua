@@ -1,5 +1,8 @@
 local t = require('luatest')
+local luatest_capture = require('luatest.capture')
 local g = t.group('unit')
+
+local helpers = require('test.helpers')
 
 local parse = require('graphql.parse').parse
 local types = require('graphql.types')
@@ -1091,6 +1094,20 @@ end
 
 g.test_version = function()
     t.assert_type(require('graphql')._VERSION, 'string')
+end
+
+g.test_deprecated_version = function()
+    local capture = luatest_capture:new()
+    capture:enable()
+
+    t.assert_type(require('graphql').VERSION, 'string')
+    local stdout = helpers.fflush_main_server_output(nil, capture)
+    capture:disable()
+
+    t.assert_str_contains(
+        stdout,
+        "require('graphql').VERSION is deprecated, " ..
+        "use require('graphql')._VERSION instead.")
 end
 
 function g.test_is_array()

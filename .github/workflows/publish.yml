@@ -9,7 +9,7 @@ jobs:
   version-check:
     # We need this job to run only on push with tag.
     if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Check module version
         uses: tarantool/actions/check-module-version@master
@@ -18,7 +18,7 @@ jobs:
 
   publish-rockspec-scm-1:
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - uses: tarantool/rocks.tarantool.org/github-action@master
@@ -29,12 +29,12 @@ jobs:
   publish-rockspec-tag:
     if: startsWith(github.ref, 'refs/tags/')
     needs: version-check
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - uses: tarantool/setup-tarantool@v2
         with:
-          tarantool-version: '2.10'
+          tarantool-version: '2.11'
 
       - run: echo "TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - run: tarantoolctl rocks new_version --tag $TAG
